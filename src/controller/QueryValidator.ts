@@ -5,7 +5,8 @@ export class QueryValidator {
 		if (!q.WHERE || !q.OPTIONS) {
 			throw new InsightError("Query must have WHERE and OPTIONS");
 		}
-		if (Object.keys(q).length !== 2) {
+		const keys = Object.keys(q);
+		if (keys.length !== 2 || !keys.includes("WHERE") || !keys.includes("OPTIONS")) {
 			throw new InsightError("Query must have exactly WHERE and OPTIONS");
 		}
 		this.validateWhere(q.WHERE);
