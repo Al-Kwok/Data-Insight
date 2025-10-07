@@ -1,0 +1,13 @@
+{
+	"title": "Query missing KEYS in COLUMNS",
+	"input": {
+		"WHERE": {
+			"GT": {
+				"sections_avg": 97
+			}
+		},
+		"OPTIONS": {"COLUMNS": []}
+	},
+	"errorExpected": true,
+	"expected": "InsightError"
+}

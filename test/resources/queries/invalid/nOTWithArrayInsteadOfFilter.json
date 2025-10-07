@@ -1,0 +1,22 @@
+{
+	"title": "NOT with array instead of filter",
+	"input": {
+		"WHERE": {
+			"NOT": [
+				{
+					"IS": {
+						"sections_dept": "cpsc"
+					}
+				}
+			]
+		},
+		"OPTIONS": {
+			"COLUMNS": [
+				"sections_dept",
+				"sections_avg"
+			]
+		}
+	},
+	"errorExpected": true,
+	"expected": "InsightError"
+}

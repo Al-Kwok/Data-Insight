@@ -1,0 +1,39 @@
+{
+	"title": "Deep nesting OR/NOT/AND",
+	"input": {
+		"WHERE": {
+			"OR": [
+				{
+					"GT": {
+						"sections_avg": 95
+					}
+				},
+				{
+					"NOT": {
+						"AND": [
+							{
+								"LT": {
+									"sections_avg": 60
+								}
+							},
+							{
+								"IS": {
+									"sections_dept": "cpsc"
+								}
+							}
+						]
+					}
+				}
+			]
+		},
+		"OPTIONS": {
+			"COLUMNS": [
+				"sections_dept",
+				"sections_avg"
+			],
+			"ORDER": "sections_avg"
+		}
+	},
+	"errorExpected": true,
+	"expected": "ResultTooLargeError"
+}

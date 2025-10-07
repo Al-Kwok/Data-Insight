@@ -1,0 +1,14 @@
+{
+  "title": "Valid idstring but wrong key",
+  "input": {
+    "WHERE": {
+      "EQ": { "sections_invalid": 100 }
+    },
+    "OPTIONS": {
+      "COLUMNS": ["sections_invalid"],
+      "ORDER": "sections_invalid"
+    }
+  },
+  "errorExpected": true,
+  "expected": "InsightError"
+}

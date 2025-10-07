@@ -1,0 +1,19 @@
+{
+  "title": "none-existent dataset",
+  "input": {
+    "WHERE": {
+      "IS": {
+        "notSections_dept": "ubc"
+      }
+    },
+    "OPTIONS": {
+      "COLUMNS": [
+        "notSections_dept",
+        "notSections_avg"
+      ],
+      "ORDER": "notSections_avg"
+    }
+  },
+  "errorExpected": true,
+  "expected": "InsightError"
+}

@@ -1,0 +1,14 @@
+{
+  "title": "Multiple underscores in idstring",
+  "input": {
+    "WHERE": {
+      "EQ": { "sections__avg": 95 }
+    },
+    "OPTIONS": {
+      "COLUMNS": ["sections__avg"],
+      "ORDER": "sections__avg"
+    }
+  },
+  "errorExpected": true,
+  "expected": "InsightError"
+}

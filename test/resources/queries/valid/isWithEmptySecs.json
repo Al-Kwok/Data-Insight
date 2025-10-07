@@ -1,0 +1,15 @@
+{
+  "title": "IS must have non-empty string",
+  "input": {
+    "WHERE": {
+      "IS": {
+        "sections_dept": ""
+      }
+    },
+    "OPTIONS": {
+      "COLUMNS": ["sections_dept", "sections_avg"]
+    }
+  },
+  "errorExpected": false,
+  "expected": []
+}

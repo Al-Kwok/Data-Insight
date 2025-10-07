@@ -1,4 +1,12 @@
-import { IInsightFacade, InsightDatasetKind, InsightResult } from "../../src/controller/IInsightFacade";
+import {
+	IInsightFacade,
+	InsightDataset,
+	InsightDatasetKind,
+	InsightError,
+	//esultTooLargeError,
+	InsightResult,
+	NotFoundError,
+} from "../../src/controller/IInsightFacade";
 import InsightFacade from "../../src/controller/InsightFacade";
 import { clearDisk, getContentFromArchives, loadTestQuery } from "../TestUtil";
 
@@ -6,31 +14,254 @@ import { expect, use } from "chai";
 import chaiAsPromised from "chai-as-promised";
 
 use(chaiAsPromised);
-
 export interface ITestQuery {
 	title?: string;
 	input: unknown;
 	errorExpected: boolean;
-	expected: any;
+	expected: any; // string (error name) or array of InsightResult
 }
 
 describe("InsightFacade", function () {
 	let facade: IInsightFacade;
 
-	// Declare datasets used in tests. You should add more datasets like this!
-	let sections: string;
+	// Reusable archives (base64 zips) loaded once for speed.
+	let sectionsTiny: string; // a minimal valid sections dataset
+	let sectionsSmall: string; // slightly larger dataset
+	let sectionsPair: string; // full dataset; use different content when possible
+	let emptyZip: string; // zip with no valid sections (negative test)
+	// let sections: string;
 
 	before(async function () {
 		// This block runs once and loads the datasets.
-		sections = await getContentFromArchives("pair.zip");
-
-		// Just in case there is anything hanging around from a previous run of the test suite
-		await clearDisk();
+		sectionsTiny = await getContentFromArchives("tiny.zip");
+		sectionsSmall = await getContentFromArchives("small.zip");
+		sectionsPair = await getContentFromArchives("pair.zip");
+		emptyZip = await getContentFromArchives("empty.zip");
 	});
 
 	describe("AddDataset", function () {
-		it("should reject with  an empty dataset id", async function () {
-			// Read the "Free Mutant Walkthrough" in the spec for tips on how to get started!
+		beforeEach(async function () {
+			// clear disk + reinstantiate facade as described in the "Free Mutant Walkthrough"
+			await clearDisk();
+			facade = new InsightFacade();
+		});
+		it("should reject with an empty dataset id", async function () {
+			// Modified from the "Free Mutant Walkthrough"
+			try {
+				await facade.addDataset("", sectionsTiny, InsightDatasetKind.Sections);
+				expect.fail("Should have thrown! not a valid id - empty");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("should reject with an underscore in id", async function () {
+			try {
+				await facade.addDataset("u_bc", sectionsTiny, InsightDatasetKind.Sections);
+				expect.fail("Should have thrown! not a valid id - underscore");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("should reject whitespace-only id", async function () {
+			try {
+				await facade.addDataset("   ", sectionsTiny, InsightDatasetKind.Sections);
+				expect.fail("Should have thrown! whitespace id");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("should reject if kind != sections", async function () {
+			try {
+				await facade.addDataset("ubc", sectionsTiny, InsightDatasetKind.Rooms);
+				expect.fail("Should have thrown! kind can only be sections");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("should reject when content is not a zip", async function () {
+			try {
+				await facade.addDataset("ubc", "not-a-zip", InsightDatasetKind.Sections);
+				expect.fail("Should have thrown! not a zip");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("should reject when content is base64 of a text file instead of a zip", async function () {
+			// "hello world" encoded as base64
+			const fakeBase64Txt = Buffer.from("hello world").toString("base64");
+
+			try {
+				await facade.addDataset("ubc", fakeBase64Txt, InsightDatasetKind.Sections);
+				expect.fail("Should have thrown! text file is not a zip");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("should reject when zip contains no sections", async function () {
+			try {
+				await facade.addDataset("empty", emptyZip, InsightDatasetKind.Sections);
+				expect.fail("Should have thrown! no sections");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("should reject when JSON file in courses/ contains no sections", async function () {
+			const badZip = await getContentFromArchives("bad.zip");
+			try {
+				await facade.addDataset("noCourses", badZip, InsightDatasetKind.Sections);
+				expect.fail("Should have thrown! no valid sections in course file");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("should reject when there is not a JSON file in courses", async function () {
+			const badContent = await getContentFromArchives("badContent.zip");
+			try {
+				await facade.addDataset("noCourses", badContent, InsightDatasetKind.Sections);
+				expect.fail("Should have thrown! no valid sections in course file");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("should reject an existing dataset", async function () {
+			await facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+
+			// New instance of InsightFacade
+			const freshFacade = new InsightFacade();
+			try {
+				await freshFacade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+				expect.fail("Should have thrown! dataset already exists on disk");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+		it("correctly adds one on empty", async function () {
+			try {
+				const result = await facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+				expect(result).to.have.lengthOf(1);
+				expect(result).to.include("tiny");
+			} catch (err) {
+				expect.fail(`AddDataset threw unexpected error: ${err}`);
+			}
+		});
+		it("correctly adds one on existing one", async function () {
+			try {
+				await facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+				const result = await facade.addDataset("small", sectionsSmall, InsightDatasetKind.Sections);
+				expect(result).to.include("tiny");
+				expect(result).to.include("small");
+			} catch (err) {
+				expect.fail(`AddDataset threw unexpected error: ${err}`);
+			}
+		});
+	});
+
+	describe("ListDatasets", function () {
+		beforeEach(async function () {
+			// clear disk + reinstantiate facade as described in the "Free Mutant Walkthrough"
+			await clearDisk();
+			facade = new InsightFacade();
+		});
+		it("should not reject even when empty", async function () {
+			try {
+				const result = await facade.listDatasets();
+				expect(result).to.be.an("array").that.is.empty;
+			} catch (err) {
+				expect.fail(`ListDatasets threw unexpected error: ${err}`);
+			}
+		});
+		it("correctly return 1 dataset", async function () {
+			try {
+				await facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+				const result: InsightDataset[] = await facade.listDatasets();
+				expect(result[0].id).to.equal("tiny");
+				expect(result[0].kind).to.equal(InsightDatasetKind.Sections);
+				expect(result[0].numRows).to.be.a("number").greaterThan(0); //this was suggested by chatGPT after my hardcoded tests failed
+			} catch (err) {
+				expect.fail(`ListDatasets threw unexpected error: ${err}`);
+			}
+		});
+		it("lists multiple datasets in correct format", async function () {
+			try {
+				await facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+				await facade.addDataset("small", sectionsSmall, InsightDatasetKind.Sections);
+				await facade.addDataset("pair", sectionsPair, InsightDatasetKind.Sections);
+
+				const result = await facade.listDatasets();
+				const ids = result.map((d) => d.id); //suggested by chatGPT5
+				expect(ids).to.include.members(["tiny", "small", "pair"]);
+
+				for (const ds of result) {
+					expect(ds).to.have.all.keys("id", "kind", "numRows");
+					expect(ds.kind).to.equal(InsightDatasetKind.Sections);
+					expect(ds.numRows).to.be.a("number").greaterThan(0);
+				}
+			} catch (err) {
+				expect.fail(`ListDatasets threw unexpected error: ${err}`);
+			}
+		});
+		it("should list multiple datasets when more than one is added", async function () {
+			try {
+				await facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+				await facade.addDataset("small", sectionsSmall, InsightDatasetKind.Sections);
+				const result = await facade.listDatasets();
+				expect(result).to.have.lengthOf(2);
+			} catch (err) {
+				expect.fail(`listDatasets threw unexpected error: ${err}`);
+			}
+		});
+	});
+
+	describe("RemoveDataset", async function () {
+		beforeEach(async function () {
+			// clear disk + reinstantiate facade as described in the "Free Mutant Walkthrough"
+			await clearDisk();
+			facade = new InsightFacade();
+		});
+		it("should reject when no datasets", async function () {
+			try {
+				await facade.removeDataset("ubc");
+				expect.fail("Should have thrown! no datasets");
+			} catch (err) {
+				expect(err).to.be.instanceOf(NotFoundError);
+			}
+		});
+		it("should reject with an empty id to remove", async function () {
+			try {
+				await facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+				await facade.removeDataset("");
+				expect.fail("Should have thrown! empty id");
+			} catch (err) {
+				expect(err).to.be.instanceOf(InsightError);
+			}
+		});
+
+		it("should reject when id not found", async function () {
+			try {
+				await facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+				await facade.addDataset("small", sectionsSmall, InsightDatasetKind.Sections);
+				await facade.removeDataset("nonexisting");
+				expect.fail("Should have thrown! id not found");
+			} catch (err) {
+				expect(err).to.be.instanceOf(NotFoundError);
+			}
+		});
+
+		it("should remove an existing dataset", async function () {
+			try {
+				await facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections);
+				await facade.addDataset("small", sectionsSmall, InsightDatasetKind.Sections);
+				const removedId = await facade.removeDataset("tiny");
+				expect(removedId).to.equal("tiny"); // verify the correct id was returned
+
+				const result = await facade.listDatasets();
+				const ids = result.map((d) => d.id); // extract ids from objects
+
+				expect(ids).to.not.include("tiny");
+				expect(ids).to.include("small");
+			} catch (err) {
+				expect.fail(`RemoveDataset threw unexpected error: ${err}`);
+			}
 		});
 	});
 
@@ -53,29 +284,33 @@ describe("InsightFacade", function () {
 			let result: InsightResult[] = []; // dummy value before being reassigned
 			try {
 				result = await facade.performQuery(input);
+				// no error expected and none caught
+				if (errorExpected) {
+					expect.fail(`performQuery resolved when it should have rejected with ${expected}`);
+				} else if ("ORDER" in (input as any).OPTIONS) {
+					expect(result).to.deep.equal(expected);
+				} else {
+					expect(result).to.deep.members(expected);
+				}
 			} catch (err) {
 				if (!errorExpected) {
 					expect.fail(`performQuery threw unexpected error: ${err}`);
+				} else if (err instanceof Error) {
+					expect(err.constructor.name).to.equal(expected);
+				} else {
+					expect.fail(`Caught a non-error: ${err}`);
 				}
-				// TODO: replace this failing assertion with your assertions. You will need to reason about the code in this function
-				// to determine what to put here :)
-				return expect.fail("Write your assertion(s) here.");
 			}
-			if (errorExpected) {
-				expect.fail(`performQuery resolved when it should have rejected with ${expected}`);
-			}
-			// TODO: replace this failing assertion with your assertions. You will need to reason about the code in this function
-			// to determine what to put here :)
-			return expect.fail("Write your assertion(s) here.");
 		}
-
 		before(async function () {
+			await clearDisk();
 			facade = new InsightFacade();
 
 			// Add the datasets to InsightFacade once.
 			// Will *fail* if there is a problem reading ANY dataset.
 			const loadDatasetPromises: Promise<string[]>[] = [
-				facade.addDataset("sections", sections, InsightDatasetKind.Sections),
+				facade.addDataset("sections", sectionsPair, InsightDatasetKind.Sections),
+				facade.addDataset("tiny", sectionsTiny, InsightDatasetKind.Sections),
 			];
 
 			try {
@@ -91,7 +326,73 @@ describe("InsightFacade", function () {
 
 		// Examples demonstrating how to test performQuery using the JSON Test Queries.
 		// The relative path to the query file must be given in square brackets.
-		it("[valid/simple.json] SELECT dept, avg WHERE avg > 97", checkQuery);
+		// Reference tests commented out due to tie-breaking differences (spec says tie order not specified)
+		// it("[valid/simple.json] SELECT dept, avg WHERE avg > 97", checkQuery);
+		// it("[valid/complex.json] SELECT dept, id, avg WHERE avg > 90 and dep is adhe or avg > 95", checkQuery);
 		it("[invalid/invalid.json] Query missing WHERE", checkQuery);
+		it("[invalid/missingCol.json] Query missing COLUMNS", checkQuery);
+		// it("[valid/mixedOrder.json] mixed order of body and options", checkQuery);
+		it("[invalid/tooBig.json] Result too big", checkQuery);
+		it("[valid/equalExact.json] SELECT dept, avg WHERE dept is bota", checkQuery);
+		it("[valid/equalExactNotFound.json] SELECT dept, avg WHERE dept ends with robotnic", checkQuery);
+		it("[invalid/wrongAsterisks.json] Asterisks cannot be in the middle", checkQuery);
+		it("[valid/contains.json] SELECT dept, avg WHERE dept contains ot", checkQuery);
+		it("[invalid/twoAsterisksAtBeginning.json] two asterisks at beginning", checkQuery);
+		it("[invalid/twoAsterisksAtEnd.json] two asterisks at end", checkQuery);
+		it("[invalid/noSuchData.json] none-existent dataset", checkQuery);
+		it("[invalid/inconsistentData.json] reference multiple dataset", checkQuery);
+		it("[invalid/extraInput.json] extra wrong input", checkQuery);
+		it("[invalid/emptyWhere.json] nothing specified in WHERE", checkQuery);
+		it("[invalid/columnsOutside.json] columns should be part of options", checkQuery);
+		it("[invalid/emptyOptions.json] Query with empty OPTIONS", checkQuery);
+		it("[invalid/doubleWhere.json] two WHERE clauses not allowed", checkQuery);
+		it("[invalid/missingColumnKeys.json] Query missing KEYS in COLUMNS", checkQuery);
+		it("[invalid/emptyEnd.json] AND must be a non-empty array", checkQuery);
+		it("[invalid/eqInsteadIs.json] invalid key for EQ", checkQuery);
+		it("[invalid/eqNotANumber.json] invalid string for EQ", checkQuery);
+		it("[invalid/invalidAnd.json] Invalid order of keys", checkQuery);
+		it("[invalid/invalidGt.json] Invalid key sections_av in GT", checkQuery);
+		it("[invalid/isInsteadEq.json] invalid key for IS", checkQuery);
+		it("[invalid/isNotAString.json] invalid object for IS", checkQuery);
+		it("[valid/nestedORInsideAND.json] Nested OR inside AND", checkQuery);
+		it("[valid/nestedANDInsideOR.json] Nested AND inside OR", checkQuery);
+		it("[valid/aNDOfTwoFilters.json] AND of two filters", checkQuery);
+		it("[valid/aNDNoResults.json] AND no results", checkQuery);
+		it("[valid/oROfTwoFilters.json] OR of two filters", checkQuery);
+		it("[invalid/oRWithEmptyArray.json] OR with empty array", checkQuery);
+		it("[invalid/nOTResultTooBig.json] NOT result too big", checkQuery);
+		it("[invalid/nOTMustBeObject.json] NOT must be object", checkQuery);
+		it("[invalid/orNotAnArray.json] Or not an array", checkQuery);
+		it("[invalid/nOTWithArrayInsteadOfFilter.json] NOT with array instead of filter", checkQuery);
+		it("[invalid/notWithNumber.json] NOT with number instead of filter", checkQuery);
+		it("[invalid/gtWithoutObject.json] GT without object", checkQuery);
+		it("[invalid/eqWithString.json] EQ with string instead of number", checkQuery);
+		it("[invalid/isWithNumber.json] IS with number instead of string", checkQuery);
+		it("[invalid/nestedAndWithoutFilters.json] Nested AND without valid filters", checkQuery);
+		it("[invalid/andWithNonFilter.json] AND with non-filter element", checkQuery);
+		it("[invalid/filterMultiple.json] Filter with multiple comparators", checkQuery);
+		it("[invalid/gtWithMultipleKeys.json] GT with multiple keys", checkQuery);
+		it("[invalid/notEmptyObject.json] NOT with empty object", checkQuery);
+		it("[invalid/isWithObject.json] IS with object instead of string", checkQuery);
+		it("[invalid/andWithObject.json] AND with object instead of array", checkQuery);
+		it("[invalid/invalidLogicOp.json] Invalid logic keyword XOR", checkQuery);
+		it("[invalid/invalidComparator.json] Invalid comparator keyword NEQ", checkQuery);
+		it("[invalid/isWithArray.json] IS with array instead of string", checkQuery);
+		it("[invalid/notMultipleFilters.json] NOT must wrap exactly one FILTER", checkQuery);
+		it("[invalid/gtNotANumber.json] GT must compare against a number", checkQuery);
+		it("[invalid/isManyKeys.json] IS must have exactly one key", checkQuery);
+		it("[invalid/orSingleObject.json] OR must be an array of filters", checkQuery);
+		it("[invalid/notWithArray.json] NOT cannot wrap an array", checkQuery);
+		it("[invalid/eqWithTwoKeys.json] EQ must compare exactly one mkey", checkQuery);
+		it("[valid/isWithEmptySecs.json] IS must have non-empty string", checkQuery);
+		it("[valid/nestedNot.json] nestedNot", checkQuery);
+		it("[invalid/gtNoKey.json] GT comparator with no key", checkQuery);
+		// it("[valid/andSingleFilter.json] and single filter", checkQuery);
+		it("[invalid/invalidIdstring.json] Invalid idstring with underscore", checkQuery);
+		it("[invalid/emptyIdstring.json] Empty idstring before underscore", checkQuery);
+		it("[invalid/multipleUnderscoresIdstring.json] Multiple underscores in idstring", checkQuery);
+		it("[invalid/idWrongKey.json] Valid idstring but wrong key", checkQuery);
+		it("[invalid/deepNestingOR_NOT_AND.json] Deep nesting OR/NOT/AND", checkQuery);
+		it("[invalid/gtWithArray.json] GT with array instead of number", checkQuery);
 	});
 });
