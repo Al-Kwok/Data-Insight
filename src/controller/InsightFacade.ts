@@ -158,6 +158,7 @@ export default class InsightFacade implements IInsightFacade {
 		return id;
 	}
 
+	// === START: Amazon Q Implementation ===
 	public async performQuery(query: unknown): Promise<InsightResult[]> {
 		try {
 			if (!query || typeof query !== "object" || Array.isArray(query)) {
@@ -315,6 +316,7 @@ export default class InsightFacade implements IInsightFacade {
 
 		return results;
 	}
+	// === END: Amazon Q Implementation ===
 
 	public async listDatasets(): Promise<InsightDataset[]> {
 		const ids = await this.getExistingDatasetIds();

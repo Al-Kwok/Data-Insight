@@ -1,5 +1,6 @@
 import { InsightError } from "./IInsightFacade";
 
+// === START: Amazon Q Implementation ===
 export class QueryValidator {
 	public validateQueryStructure(q: Record<string, any>): void {
 		if (!q.WHERE || !q.OPTIONS) {
@@ -153,3 +154,4 @@ export class QueryValidator {
 		return mfields.includes(field) ? "mfield" : "sfield";
 	}
 }
+// === END: Amazon Q Implementation ===
