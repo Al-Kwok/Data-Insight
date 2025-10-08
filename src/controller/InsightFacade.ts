@@ -4,8 +4,8 @@ import {
 	InsightDatasetKind,
 	InsightResult,
 	InsightError,
-	NotFoundError,
-	ResultTooLargeError,
+	// NotFoundError,
+	// ResultTooLargeError,
 } from "./IInsightFacade";
 import { Section } from "./Section";
 import * as fs from "fs-extra";
@@ -19,10 +19,11 @@ import * as JSZip from "jszip";
 export default class InsightFacade implements IInsightFacade {
 	private datasets: Map<string, Section[]>;
 	private readonly persistDir: string = "./data";
+	private loadPromise: Promise<void>;
 
 	constructor() {
 		this.datasets = new Map<string, Section[]>();
-		this.loadPersistedDatasets();
+		this.loadPromise = this.loadPersistedDatasets();
 	}
 
 	public async addDataset(id: string, content: string, kind: InsightDatasetKind): Promise<string[]> {
@@ -31,25 +32,20 @@ export default class InsightFacade implements IInsightFacade {
 
 		// check for duplicate ID
 		if (this.datasets.has(id)) {
-			return Promise.reject(new InsightError(`Dataset with id '${id}' already exists`));
+			throw new InsightError(`Dataset with id '${id}' already exists`);
 		}
 
 		// Validate kind
 		if (kind !== InsightDatasetKind.Sections) {
-			return Promise.reject(new InsightError("only 'sections' kind is allowed"));
+			throw new InsightError("Only 'sections' kind is supported");
 		}
 
 		// Extract sections from zip file
-		let sections: Section[];
-		try {
-			sections = await this.extractSectionsFromZip(content);
-		} catch (error) {
-			return Promise.reject(error);
-		}
+		const sections = await this.extractSectionsFromZip(content);
 
 		// Validate at least one section exists
 		if (sections.length === 0) {
-			return Promise.reject(new InsightError("No valid sections found in dataset"));
+			throw new InsightError("No valid sections found in dataset");
 		}
 
 		// store in memory
@@ -60,7 +56,7 @@ export default class InsightFacade implements IInsightFacade {
 			await this.saveToDisk(id, sections);
 		} catch (error) {
 			this.datasets.delete(id);
-			return Promise.reject(new InsightError(`Failed to presist dataset: ${error}`));
+			throw new InsightError(`Failed to persist dataset: ${error}`);
 		}
 
 		// return all dataset IDs
@@ -85,14 +81,14 @@ export default class InsightFacade implements IInsightFacade {
 		let zipData: Buffer;
 		try {
 			zipData = Buffer.from(content, "base64");
-		} catch (error) {
+		} catch {
 			throw new InsightError("Invalid base64 content");
 		}
 
 		let zip: any;
 		try {
 			zip = await JSZip.loadAsync(zipData);
-		} catch (error) {
+		} catch {
 			throw new InsightError("invalid zip file");
 		}
 
@@ -139,7 +135,7 @@ export default class InsightFacade implements IInsightFacade {
 					sections.push(this.createSection(rawSection));
 				}
 			}
-		} catch (error) {
+		} catch {
 			return [];
 		}
 		return sections;
@@ -185,18 +181,31 @@ export default class InsightFacade implements IInsightFacade {
 			}
 			const files = await fs.readdir(this.persistDir);
 
-			for (const file of files) {
-				if (file.endsWith(".json")) {
+			// Create all promises at once (parallel loading)
+			const loadPromises = files
+				.filter((file) => file.endsWith(".json"))
+				.map(async (file) => {
 					try {
 						const filepath = `${this.persistDir}/${file}`;
 						const sections: Section[] = await fs.readJSON(filepath);
 						const datasetId = file.slice(0, -5);
-						this.datasets.set(datasetId, sections);
-					} catch (error) {}
+						return { datasetId, sections };
+					} catch {
+						return null;
+					}
+				});
+
+			// Wait for all files to load in parallel
+			const results = await Promise.all(loadPromises);
+
+			// Add successfully loaded datasets to the map
+			for (const result of results) {
+				if (result !== null) {
+					this.datasets.set(result.datasetId, result.sections);
 				}
 			}
-		} catch (error) {
-			// no action, start with empty dataset
+		} catch {
+			// Start with empty datasets
 		}
 	}
 
