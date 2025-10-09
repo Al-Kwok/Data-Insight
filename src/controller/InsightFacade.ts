@@ -12,11 +12,6 @@ import * as path from "path";
 import JSZip from "jszip";
 import { QueryValidator } from "./QueryValidator";
 
-/**
- * This is the main programmatic entry point for the project.
- * Method documentation is in IInsightFacade
- *
- */
 interface Course {
 	uuid: string;
 	id: string;
@@ -57,6 +52,77 @@ export default class InsightFacade implements IInsightFacade {
 				throw error;
 			}
 			throw new InsightError("Failed to process dataset");
+		}
+	}
+
+	public async removeDataset(id: string): Promise<string> {
+		if (!id || id.includes("_") || id.trim() === "") {
+			throw new InsightError("Invalid dataset id");
+		}
+
+		const filePath = path.join(this.dataDir, `${id}.json`);
+		if (!(await fs.pathExists(filePath))) {
+			throw new NotFoundError("Dataset not found");
+		}
+
+		await fs.remove(filePath);
+		this.datasets.delete(id);
+		return id;
+	}
+
+	public async listDatasets(): Promise<InsightDataset[]> {
+		const ids = await this.getExistingDatasetIds();
+		const results: InsightDataset[] = [];
+
+		for (const id of ids) {
+			const data = await this.loadDataset(id);
+			if (data) {
+				results.push({
+					id,
+					kind: InsightDatasetKind.Sections,
+					numRows: data.length,
+				});
+			}
+		}
+
+		return results;
+	}
+
+	public async performQuery(query: unknown): Promise<InsightResult[]> {
+		try {
+			if (!query || typeof query !== "object" || Array.isArray(query)) {
+				throw new InsightError("Query must be an object");
+			}
+
+			const q = query as Record<string, any>;
+			this.validator.validateQueryStructure(q);
+
+			const datasetId = this.extractDatasetId(q);
+			if (!datasetId) {
+				throw new InsightError("Query must reference exactly one dataset");
+			}
+
+			const dataset = await this.loadDataset(datasetId);
+			if (!dataset) {
+				throw new InsightError(`Dataset ${datasetId} not found`);
+			}
+
+			const filteredCourses = this.applyWhere(dataset, q.WHERE);
+			const results = this.applyOptions(filteredCourses, q.OPTIONS);
+
+			if (results.length > InsightFacade.MAX_RESULTS) {
+				throw new ResultTooLargeError("Query result exceeds 5000 rows");
+			}
+
+			return results;
+		} catch (error) {
+			if (error instanceof ResultTooLargeError) {
+				throw error;
+			}
+			if (error instanceof InsightError) {
+				throw error;
+			}
+			throw new InsightError("Invalid query");
 		}
 	}
 
@@ -140,60 +206,6 @@ export default class InsightFacade implements IInsightFacade {
 			return files.filter((f) => f.endsWith(".json")).map((f) => f.replace(".json", ""));
 		} catch {
 			return [];
-		}
-	}
-
-	public async removeDataset(id: string): Promise<string> {
-		if (!id || id.includes("_") || id.trim() === "") {
-			throw new InsightError("Invalid dataset id");
-		}
-
-		const filePath = path.join(this.dataDir, `${id}.json`);
-		if (!(await fs.pathExists(filePath))) {
-			throw new NotFoundError("Dataset not found");
-		}
-
-		await fs.remove(filePath);
-		this.datasets.delete(id);
-		return id;
-	}
-
-	// === START: Amazon Q Implementation ===
-	public async performQuery(query: unknown): Promise<InsightResult[]> {
-		try {
-			if (!query || typeof query !== "object" || Array.isArray(query)) {
-				throw new InsightError("Query must be an object");
-			}
-
-			const q = query as Record<string, any>;
-			this.validator.validateQueryStructure(q);
-
-			const datasetId = this.extractDatasetId(q);
-			if (!datasetId) {
-				throw new InsightError("Query must reference exactly one dataset");
-			}
-
-			const dataset = await this.loadDataset(datasetId);
-			if (!dataset) {
-				throw new InsightError(`Dataset ${datasetId} not found`);
-			}
-
-			const filteredCourses = this.applyWhere(dataset, q.WHERE);
-			const results = this.applyOptions(filteredCourses, q.OPTIONS);
-
-			if (results.length > InsightFacade.MAX_RESULTS) {
-				throw new ResultTooLargeError("Query result exceeds 5000 rows");
-			}
-
-			return results;
-		} catch (error) {
-			if (error instanceof ResultTooLargeError) {
-				throw error;
-			}
-			if (error instanceof InsightError) {
-				throw error;
-			}
-			throw new InsightError("Invalid query");
 		}
 	}
 
@@ -315,17 +327,5 @@ export default class InsightFacade implements IInsightFacade {
 		}
 
 		return results;
-	}
-	// === END: Amazon Q Implementation ===
-
-	public async listDatasets(): Promise<InsightDataset[]> {
-		const ids = await this.getExistingDatasetIds();
-		const datasetPromises = ids.map(async (id) => {
-			const data = await this.loadDataset(id);
-			return data ? { id, kind: InsightDatasetKind.Sections, numRows: data.length } : null;
-		});
-
-		const results = await Promise.all(datasetPromises);
-		return results.filter((dataset): dataset is InsightDataset => dataset !== null);
 	}
 }
