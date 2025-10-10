@@ -89,12 +89,12 @@ export default class InsightFacade implements IInsightFacade {
 		}
 
 		const filtered = this.applyWhere(dataset, q.WHERE);
-		const results = this.applyOptions(filtered, q.OPTIONS);
-
-		if (results.length > InsightFacade.MAX_RESULTS) {
+		// improved efficiency from AI's version - EK
+		if (filtered.length > InsightFacade.MAX_RESULTS) {
 			throw new ResultTooLargeError("Query result exceeds 5000 rows");
 		}
 
+		const results = this.applyOptions(filtered, q.OPTIONS);
 		return results;
 	}
 
@@ -203,7 +203,7 @@ export default class InsightFacade implements IInsightFacade {
 			...new Set(
 				Array.from(keys)
 					.map((k) => k.split("_")[0])
-					.filter(Boolean)
+					// .filter(Boolean) removed this from AI's version because it masks bugs. EK
 			),
 		];
 		return ids.length === 1 ? ids[0] : null;
@@ -225,7 +225,8 @@ export default class InsightFacade implements IInsightFacade {
 	}
 
 	private evaluateFilter(section: Section, filter: any): boolean {
-		if (!filter || typeof filter !== "object") return true;
+		// fixed this from AI's version - EK. No defensive programming and masking of bugs.
+		if (!filter || typeof filter !== "object") throw new InsightError("Invalid filter");
 
 		const [key, value] = Object.entries(filter)[0];
 		switch (key) {
@@ -271,7 +272,7 @@ export default class InsightFacade implements IInsightFacade {
 		return value === cleanPattern;
 	}
 
-	private applyOptions(sections: Section[], options: any): InsightResult[] {
+	private applyOptions(sections: Section[], options: any): InsightResult[] { //takes filtered sections and query options, returns array of InsightResult objects.
 		const results = sections.map((section) => {
 			const result: InsightResult = {};
 			options.COLUMNS.forEach((col: string) => {

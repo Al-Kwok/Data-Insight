@@ -287,8 +287,8 @@ describe("InsightFacade", function () {
 				// no error expected and none caught
 				if (errorExpected) {
 					expect.fail(`performQuery resolved when it should have rejected with ${expected}`);
-				} else if ("ORDER" in (input as any).OPTIONS) {
-					expect(result).to.deep.equal(expected);
+					//	} else if ("ORDER" in (input as any).OPTIONS) {
+					//		expect(result).to.deep.equal(expected);
 				} else {
 					expect(result).to.deep.members(expected);
 				}

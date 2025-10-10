@@ -20,6 +20,7 @@ export class QueryValidator {
 			throw new InsightError("WHERE must be an object");
 		}
 		if (Object.keys(where).length > 0) {
+			// Non-empty WHERE; i.e. if length is 0, it's empty and matches all entries
 			this.validateFilter(where);
 		}
 	}
@@ -133,6 +134,15 @@ export class QueryValidator {
 		if (!Array.isArray(options.COLUMNS) || options.COLUMNS.length === 0) {
 			throw new InsightError("COLUMNS must be a non-empty array");
 		}
+		//caught this missing check and added it - EK
+		const validOptionKeys = ["COLUMNS", "ORDER"];
+		const optionKeys = Object.keys(options);
+		optionKeys.forEach((key) => {
+			if (!validOptionKeys.includes(key)) {
+				throw new InsightError(`Invalid OPTIONS key: ${key}`);
+			}
+		});
+		//the rest of AI-generated content is carefully checked and approved - EK
 		options.COLUMNS.forEach((col: any) => {
 			if (typeof col !== "string") {
 				throw new InsightError("Column must be a string");
@@ -140,6 +150,7 @@ export class QueryValidator {
 			this.validateKey(col, this.getKeyType(col));
 		});
 		if (options.ORDER) {
+			//The ORDER key must be a key found in the COLUMN KEY_LIST array
 			if (typeof options.ORDER !== "string") {
 				throw new InsightError("ORDER must be a string");
 			}
