@@ -1,0 +1,14 @@
+{
+  "title": "Empty idstring before underscore",
+  "input": {
+    "WHERE": {
+      "GT": { "_avg": 90 }
+    },
+    "OPTIONS": {
+      "COLUMNS": ["_avg"],
+      "ORDER": "_avg"
+    }
+  },
+  "errorExpected": true,
+  "expected": "InsightError"
+}

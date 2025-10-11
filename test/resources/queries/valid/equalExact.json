@@ -1,0 +1,140 @@
+{
+	"title": "SELECT dept, avg WHERE dept is bota",
+	"input": {
+		"WHERE": {
+			"IS": {
+				"sections_dept": "bota"
+			}
+		},
+		"OPTIONS": {
+			"COLUMNS": [
+				"sections_dept",
+				"sections_avg"
+			],
+			"ORDER": "sections_avg"
+		}
+	},
+	"errorExpected": false,
+	"expected": [
+		{
+			"sections_dept": "bota",
+			"sections_avg": 83.43
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 83.43
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 83.83
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 83.83
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 84
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 84
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 84.86
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 84.86
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 85.3
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 85.3
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.21
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.21
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.4
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.4
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.55
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.55
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.75
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.75
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.96
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 87.96
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 89
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 89
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 89.05
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 89.05
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 90.71
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 90.71
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 91
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 91
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 92
+		},
+		{
+			"sections_dept": "bota",
+			"sections_avg": 92
+		}
+	]
+}

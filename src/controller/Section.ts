@@ -1,8 +1,3 @@
-/**
- represents a single course section.
- Inter
- */
-
 export interface Section {
 	uuid: string;
 	id: string;

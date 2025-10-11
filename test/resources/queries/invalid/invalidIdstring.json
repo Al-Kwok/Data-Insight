@@ -1,0 +1,14 @@
+{
+  "title": "Invalid idstring with underscore",
+  "input": {
+    "WHERE": {
+      "GT": { "sec_tions_avg": 90 }
+    },
+    "OPTIONS": {
+      "COLUMNS": ["sec_tions_avg"],
+      "ORDER": "sec_tions_avg"
+    }
+  },
+  "errorExpected": true,
+  "expected": "InsightError"
+}

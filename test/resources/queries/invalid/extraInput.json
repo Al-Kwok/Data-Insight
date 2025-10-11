@@ -1,0 +1,20 @@
+{
+  "title": "extra wrong input",
+  "input": {
+    "WHERE": {
+      "IS": {
+        "sections_dept": "ubc"
+      }
+    },
+    "OPTIONS": {
+      "COLUMNS": [
+        "sections_dept",
+        "sections_avg"
+      ],
+      "ORDER": "sections_avg"
+    },
+    "EXTRA": {}
+  },
+  "errorExpected": true,
+  "expected": "InsightError"
+}

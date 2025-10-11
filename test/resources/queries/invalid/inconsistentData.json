@@ -1,0 +1,19 @@
+{
+  "title": "reference multiple dataset",
+  "input": {
+    "WHERE": {
+      "IS": {
+        "sections_dept": "ubc"
+      }
+    },
+    "OPTIONS": {
+      "COLUMNS": [
+        "tiny_dept",
+        "sections_avg"
+      ],
+      "ORDER": "sections_avg"
+    }
+  },
+  "errorExpected": true,
+  "expected": "InsightError"
+}

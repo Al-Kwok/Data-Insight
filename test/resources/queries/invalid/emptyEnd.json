@@ -1,0 +1,18 @@
+{
+  "title": "AND must be a non-empty array",
+  "input": {
+    "WHERE": {
+      "AND": []
+    },
+    "OPTIONS": {
+      "COLUMNS": [
+        "ubc_dept",
+        "ubc_id",
+        "ubc_avg"
+      ],
+      "ORDER": "ubc_avg"
+    }
+  },
+  "errorExpected": true,
+  "expected": "InsightError"
+}

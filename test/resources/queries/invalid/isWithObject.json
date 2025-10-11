@@ -1,0 +1,15 @@
+{
+  "title": "IS with object instead of string",
+  "input": {
+    "WHERE": {
+      "IS": {
+        "sections_dept": { "foo": "bar" }
+      }
+    },
+    "OPTIONS": {
+      "COLUMNS": ["sections_dept", "sections_avg"]
+    }
+  },
+  "errorExpected": true,
+  "expected": "InsightError"
+}
