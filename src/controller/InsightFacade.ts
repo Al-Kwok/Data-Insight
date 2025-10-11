@@ -36,14 +36,83 @@ export default class InsightFacade implements IInsightFacade {
 		}
 
 		const sections = await this.extractSections(content);
+
 		if (sections.length === 0) {
 			throw new InsightError("No valid sections found in dataset");
 		}
 
+		// store in memory
 		this.datasets.set(id, sections);
-		await this.saveToDisk(id, sections);
 
+		// persist to disk
+		try {
+			await this.saveToDisk(id, sections);
+		} catch (error) {
+			this.datasets.delete(id);
+			throw new InsightError(`Failed to persist dataset: ${error}`);
+		}
+
+		// return all dataset IDs
 		return Array.from(this.datasets.keys());
+	}
+
+	private createSection(data: any): Section {
+		const year = data.Section === "overall" ? 1900 : Number(data.Year);
+
+		return {
+			uuid: String(data.id),
+			id: String(data.Course),
+			title: String(data.Title),
+			instructor: String(data.Professor),
+			dept: String(data.Subject),
+			year: year,
+			avg: Number(data.Avg),
+			pass: Number(data.Pass),
+			fail: Number(data.Fail),
+			audit: Number(data.Audit),
+		};
+	}
+
+	private async saveToDisk(id: string, sections: Section[]): Promise<void> {
+		await fs.ensureDir(this.persistDir);
+		const filepath = `${this.persistDir}/${id}.json`;
+		await fs.writeJSON(filepath, sections, { spaces: 2 });
+	}
+
+	private async loadPersistedDatasets(): Promise<void> {
+		try {
+			const exists = await fs.pathExists(this.persistDir);
+			if (!exists) {
+				return;
+			}
+			const files = await fs.readdir(this.persistDir);
+
+			// Create all promises at once (parallel loading)
+			const loadPromises = files
+				.filter((file) => file.endsWith(".json"))
+				.map(async (file) => {
+					try {
+						const filepath = `${this.persistDir}/${file}`;
+						const sections: Section[] = await fs.readJSON(filepath);
+						const datasetId = file.slice(0, -5);
+						return { datasetId, sections };
+					} catch {
+						return null;
+					}
+				});
+
+			// Wait for all files to load in parallel
+			const results = await Promise.all(loadPromises);
+
+			// Add successfully loaded datasets to the map
+			for (const result of results) {
+				if (result !== null) {
+					this.datasets.set(result.datasetId, result.sections);
+				}
+			}
+		} catch {
+			// Start with empty datasets
+		}
 	}
 
 	public async removeDataset(id: string): Promise<string> {
