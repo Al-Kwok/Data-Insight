@@ -6,48 +6,61 @@ import {
 	InsightResult,
 	InsightError,
 	NotFoundError,
-	ResultTooLargeError,
+	// ResultTooLargeError,
 } from "./IInsightFacade";
 import { Section } from "./Section";
 import * as fs from "fs-extra";
 import * as JSZip from "jszip";
-import { QueryValidator } from "./QueryValidator";
-
-const persistDir = "./data";
+//import { QueryValidator } from "./QueryValidator";
 
 export default class InsightFacade implements IInsightFacade {
-	private static readonly MAX_RESULTS = 5000;
+	//private static readonly MAX_RESULTS = 5000;
 	private static readonly OVERALL_YEAR = 1900;
+	private static readonly JSON_EXTENSION_LENGTH = 5;
 
+	private readonly persistDir: string = "./data";
+	//private validator = new QueryValidator();
 	private datasets = new Map<string, Section[]>();
-	private validator = new QueryValidator();
+	private loadPromise: Promise<void>;
+
+	constructor() {
+		this.datasets = new Map<string, Section[]>();
+		this.loadPromise = this.loadPersistedDatasets();
+	}
 
 	public async addDataset(id: string, content: string, kind: InsightDatasetKind): Promise<string[]> {
+		// Wait for any persisted datasets to load first
+		await this.loadPromise;
+
+		// Validate ID
 		this.validateId(id);
 
-		if (kind !== InsightDatasetKind.Sections) {
-			throw new InsightError("Only 'sections' kind is supported");
-		}
-
-		await this.loadExistingDatasets();
-
+		// Check for duplicate ID
 		if (this.datasets.has(id)) {
 			throw new InsightError(`Dataset with id '${id}' already exists`);
 		}
 
-		const sections = await this.extractSections(content);
+		// Validate kind
+		if (kind !== InsightDatasetKind.Sections) {
+			throw new InsightError("Only 'sections' kind is supported");
+		}
 
+		// Extract sections from zip file
+		const sections = await this.extractSectionsFromZip(content);
+
+		// Validate at least one section exists
 		if (sections.length === 0) {
 			throw new InsightError("No valid sections found in dataset");
 		}
 
-		// store in memory
+		// Store in memory
 		this.datasets.set(id, sections);
 
-		// persist to disk
+		// Persist to disk
 		try {
 			await this.saveToDisk(id, sections);
 		} catch (error) {
+			// Rollback: remove from memory if disk save fails
 			this.datasets.delete(id);
 			throw new InsightError(`Failed to persist dataset: ${error}`);
 		}
@@ -56,8 +69,124 @@ export default class InsightFacade implements IInsightFacade {
 		return Array.from(this.datasets.keys());
 	}
 
+	// helpers for addDataset
+
+	// Validates that an ID is valid according to the specification
+	private validateId(id: string): void {
+		if (id.length === 0) {
+			throw new InsightError("ID cannot be empty");
+		}
+
+		if (id.trim().length === 0) {
+			throw new InsightError("ID cannot be only whitespace");
+		}
+
+		if (id.includes("_")) {
+			throw new InsightError("ID cannot contain underscores");
+		}
+	}
+
+	// Extracts all valid sections from a base64-encoded zip file.
+	private async extractSectionsFromZip(content: string): Promise<Section[]> {
+		// Decode base64 to buffer
+		let zipData: Buffer;
+		try {
+			zipData = Buffer.from(content, "base64");
+		} catch {
+			throw new InsightError("Invalid base64 content");
+		}
+
+		// Load zip file using JSZip
+		let zip: any;
+		try {
+			zip = await JSZip.loadAsync(zipData);
+		} catch {
+			throw new InsightError("Invalid zip file");
+		}
+
+		// Iterate through zip and find files in courses/ folder
+		let hasCoursesFolder = false;
+		const filePromises: Array<Promise<Section[]>> = [];
+
+		zip.forEach((relativePath: string, file: JSZip.JSZipObject) => {
+			if (relativePath.startsWith("courses/")) {
+				hasCoursesFolder = true;
+
+				if (!file.dir && relativePath !== "courses/") {
+					const promise = file
+						.async("text")
+						.then((fileContent: string) => this.processCourseFile(fileContent))
+						.catch(() => [] as Section[]);
+
+					filePromises.push(promise);
+				}
+			}
+		});
+
+		// Validate that courses/ folder exists
+		if (!hasCoursesFolder) {
+			throw new InsightError("Dataset must contain a courses/ folder");
+		}
+
+		// Wait for all file processing to complete in parallel
+		const sectionArrays = await Promise.all(filePromises);
+
+		// Flatten array of arrays into single array
+		const allSections = sectionArrays.flat();
+
+		return allSections;
+	}
+
+	// process a single course JSON file and extracts all valid sections
+	private processCourseFile(fileContent: string): Section[] {
+		const sections: Section[] = [];
+
+		try {
+			const jsonData = JSON.parse(fileContent);
+
+			if (!jsonData.result || !Array.isArray(jsonData.result)) {
+				return [];
+			}
+
+			for (const rawSection of jsonData.result) {
+				if (this.hasAllRequiredFields(rawSection)) {
+					sections.push(this.createSection(rawSection));
+				}
+			}
+		} catch {
+			return [];
+		}
+
+		return sections;
+	}
+
+	// checks if raw section object has all required fields
+	// required field must NOT be null or undefined.
+	// zero values and empty strings are considered valid.
+	private hasAllRequiredFields(data: any): boolean {
+		const requiredFields = [
+			"Subject",
+			"Course",
+			"Professor",
+			"Title",
+			"id",
+			"Avg",
+			"Pass",
+			"Fail",
+			"Audit",
+			"Year",
+			"Section",
+		];
+
+		return requiredFields.every(
+			(field) => data.hasOwnProperty(field) && data[field] !== undefined && data[field] !== null
+		);
+	}
+
+	// creates a section object from validated raw JSON data
+	// translates JSON field names to Section interface field names
 	private createSection(data: any): Section {
-		const year = data.Section === "overall" ? 1900 : Number(data.Year);
+		const year = data.Section === "overall" ? InsightFacade.OVERALL_YEAR : Number(data.Year);
 
 		return {
 			uuid: String(data.id),
@@ -73,6 +202,7 @@ export default class InsightFacade implements IInsightFacade {
 		};
 	}
 
+	// persists a dataset to disk as JSON
 	private async saveToDisk(id: string, sections: Section[]): Promise<void> {
 		await fs.ensureDir(this.persistDir);
 		const filepath = `${this.persistDir}/${id}.json`;
@@ -94,7 +224,7 @@ export default class InsightFacade implements IInsightFacade {
 					try {
 						const filepath = `${this.persistDir}/${file}`;
 						const sections: Section[] = await fs.readJSON(filepath);
-						const datasetId = file.slice(0, -5);
+						const datasetId = file.slice(0, -InsightFacade.JSON_EXTENSION_LENGTH);
 						return { datasetId, sections };
 					} catch {
 						return null;
@@ -117,20 +247,17 @@ export default class InsightFacade implements IInsightFacade {
 
 	public async removeDataset(id: string): Promise<string> {
 		this.validateId(id);
-		await this.loadExistingDatasets();
 
 		if (!this.datasets.has(id)) {
 			throw new NotFoundError(`Dataset with id '${id}' not found`);
 		}
 
 		this.datasets.delete(id);
-		await fs.remove(`${persistDir}/${id}.json`);
+		await fs.remove(`${this.persistDir}/${id}.json`);
 		return id;
 	}
 
 	public async listDatasets(): Promise<InsightDataset[]> {
-		await this.loadExistingDatasets();
-
 		return Array.from(this.datasets.entries()).map(([id, sections]) => ({
 			id,
 			kind: InsightDatasetKind.Sections,
@@ -139,231 +266,235 @@ export default class InsightFacade implements IInsightFacade {
 	}
 
 	public async performQuery(query: unknown): Promise<InsightResult[]> {
-		if (!query || typeof query !== "object" || Array.isArray(query)) {
-			throw new InsightError("Query must be an object");
-		}
-
-		const q = query as Record<string, any>;
-		this.validator.validateQueryStructure(q);
-
-		const datasetId = this.extractDatasetId(q);
-		if (!datasetId) {
-			throw new InsightError("Query must reference exactly one dataset");
-		}
-
-		await this.loadExistingDatasets();
-		const dataset = this.datasets.get(datasetId);
-		if (!dataset) {
-			throw new InsightError(`Dataset ${datasetId} not found`);
-		}
-
-		const filtered = this.applyWhere(dataset, q.WHERE);
-		// improved efficiency from AI's version - EK
-		if (filtered.length > InsightFacade.MAX_RESULTS) {
-			throw new ResultTooLargeError("Query result exceeds 5000 rows");
-		}
-
-		const results = this.applyOptions(filtered, q.OPTIONS);
-		return results;
+		return new Promise((resolve, reject) => {});
 	}
+	// 	if (!query || typeof query !== "object" || Array.isArray(query)) {
+	// 		throw new InsightError("Query must be an object");
+	// 	}
+	//
+	// 	const q = query as Record<string, any>;
+	// 	this.validator.validateQueryStructure(q);
+	//
+	// 	const datasetId = this.extractDatasetId(q);
+	// 	if (!datasetId) {
+	// 		throw new InsightError("Query must reference exactly one dataset");
+	// 	}
+	//
+	// 	await this.loadExistingDatasets();
+	// 	const dataset = this.datasets.get(datasetId);
+	// 	if (!dataset) {
+	// 		throw new InsightError(`Dataset ${datasetId} not found`);
+	// 	}
+	//
+	// 	const filtered = this.applyWhere(dataset, q.WHERE);
+	// 	// improved efficiency from AI's version - EK
+	// 	if (filtered.length > InsightFacade.MAX_RESULTS) {
+	// 		throw new ResultTooLargeError("Query result exceeds 5000 rows");
+	// 	}
+	//
+	// 	const results = this.applyOptions(filtered, q.OPTIONS);
+	// 	return results;
+	// }
 
-	private validateId(id: string): void {
-		if (!id || id.trim() === "" || id.includes("_")) {
-			throw new InsightError("Invalid dataset id");
-		}
-	}
+	// Duplicate to revisit
+	// private validateId(id: string): void {
+	// 	if (!id || id.trim() === "" || id.includes("_")) {
+	// 		throw new InsightError("Invalid dataset id");
+	// 	}
+	// }
 
-	private async extractSections(content: string): Promise<Section[]> {
-		let zipData: Buffer;
-		try {
-			zipData = Buffer.from(content, "base64");
-		} catch {
-			throw new InsightError("Invalid base64 content");
-		}
+	// private async extractSections(content: string): Promise<Section[]> {
+	// 	let zipData: Buffer;
+	// 	try {
+	// 		zipData = Buffer.from(content, "base64");
+	// 	} catch {
+	// 		throw new InsightError("Invalid base64 content");
+	// 	}
+	//
+	// 	let zip: any;
+	// 	try {
+	// 		zip = await JSZip.loadAsync(zipData);
+	// 	} catch {
+	// 		throw new InsightError("Invalid zip file");
+	// 	}
+	//
+	// 	const sections: Section[] = [];
+	// 	let hasCoursesFolder = false;
+	//
+	// 	for (const [path, file] of Object.entries(zip.files)) {
+	// 		if (path.startsWith("courses/")) {
+	// 			hasCoursesFolder = true;
+	// 			if (!(file as any).dir && path !== "courses/") {
+	// 				try {
+	// 					const content = await (file as any).async("text");
+	// 					const data = JSON.parse(content);
+	// 					if (data.result && Array.isArray(data.result)) {
+	// 						data.result.forEach((section: any) => {
+	// 							if (this.isValidSection(section)) {
+	// 								sections.push(this.createSection(section));
+	// 							}
+	// 						});
+	// 					}
+	// 				} catch {
+	// 					// Skip invalid files
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	//
+	// 	if (!hasCoursesFolder) {
+	// 		throw new InsightError("Dataset must be contained in courses folder");
+	// 	}
+	//
+	// 	return sections;
+	// }
+	//
+	// private isValidSection(data: any): boolean {
+	// 	const required = ["id", "Course", "Title", "Professor", "Subject", "Year", "Avg", "Pass", "Fail", "Audit"];
+	// 	return required.every((field) => data[field] !== undefined && data[field] !== null);
+	// }
 
-		let zip: any;
-		try {
-			zip = await JSZip.loadAsync(zipData);
-		} catch {
-			throw new InsightError("Invalid zip file");
-		}
+	//Duplicate to revisit
+	// private createSection(data: any): Section {
+	// 	return {
+	// 		uuid: String(data.id),
+	// 		id: String(data.Course),
+	// 		title: String(data.Title),
+	// 		instructor: String(data.Professor),
+	// 		dept: String(data.Subject),
+	// 		year: data.Section === "overall" ? InsightFacade.OVERALL_YEAR : Number(data.Year),
+	// 		avg: Number(data.Avg),
+	// 		pass: Number(data.Pass),
+	// 		fail: Number(data.Fail),
+	// 		audit: Number(data.Audit),
+	// 	};
+	// }
 
-		const sections: Section[] = [];
-		let hasCoursesFolder = false;
+	// private async saveToDisk(id: string, sections: Section[]): Promise<void> {
+	// 	await fs.ensureDir(persistDir);
+	// 	await fs.writeJSON(`${persistDir}/${id}.json`, sections);
+	// }
+	//
+	// private async loadExistingDatasets(): Promise<void> {
+	// 	if (this.datasets.size > 0) return; // Already loaded
+	//
+	// 	try {
+	// 		if (!(await fs.pathExists(this.persistDir))) return;
+	//
+	// 		const files = await fs.readdir(this.persistDir);
+	// 		for (const file of files.filter((f) => f.endsWith(".json"))) {
+	// 			try {
+	// 				const sections = await fs.readJSON(`${this.persistDir}/${file}`);
+	// 				const id = file.replace(".json", "");
+	// 				this.datasets.set(id, sections);
+	// 			} catch {
+	// 				// Skip corrupted files
+	// 			}
+	// 		}
+	// 	} catch {
+	// 		// Start with empty datasets
+	// 	}
+	// }
 
-		for (const [path, file] of Object.entries(zip.files)) {
-			if (path.startsWith("courses/")) {
-				hasCoursesFolder = true;
-				if (!(file as any).dir && path !== "courses/") {
-					try {
-						const content = await (file as any).async("text");
-						const data = JSON.parse(content);
-						if (data.result && Array.isArray(data.result)) {
-							data.result.forEach((section: any) => {
-								if (this.isValidSection(section)) {
-									sections.push(this.createSection(section));
-								}
-							});
-						}
-					} catch {
-						// Skip invalid files
-					}
-				}
-			}
-		}
-
-		if (!hasCoursesFolder) {
-			throw new InsightError("Dataset must be contained in courses folder");
-		}
-
-		return sections;
-	}
-
-	private isValidSection(data: any): boolean {
-		const required = ["id", "Course", "Title", "Professor", "Subject", "Year", "Avg", "Pass", "Fail", "Audit"];
-		return required.every((field) => data[field] !== undefined && data[field] !== null);
-	}
-
-	private createSection(data: any): Section {
-		return {
-			uuid: String(data.id),
-			id: String(data.Course),
-			title: String(data.Title),
-			instructor: String(data.Professor),
-			dept: String(data.Subject),
-			year: data.Section === "overall" ? InsightFacade.OVERALL_YEAR : Number(data.Year),
-			avg: Number(data.Avg),
-			pass: Number(data.Pass),
-			fail: Number(data.Fail),
-			audit: Number(data.Audit),
-		};
-	}
-
-	private async saveToDisk(id: string, sections: Section[]): Promise<void> {
-		await fs.ensureDir(persistDir);
-		await fs.writeJSON(`${persistDir}/${id}.json`, sections);
-	}
-
-	private async loadExistingDatasets(): Promise<void> {
-		if (this.datasets.size > 0) return; // Already loaded
-
-		try {
-			if (!(await fs.pathExists(persistDir))) return;
-
-			const files = await fs.readdir(persistDir);
-			for (const file of files.filter((f) => f.endsWith(".json"))) {
-				try {
-					const sections = await fs.readJSON(`${persistDir}/${file}`);
-					const id = file.replace(".json", "");
-					this.datasets.set(id, sections);
-				} catch {
-					// Skip corrupted files
-				}
-			}
-		} catch {
-			// Start with empty datasets
-		}
-	}
-
-	private extractDatasetId(query: Record<string, any>): string | null {
-		const keys = new Set<string>();
-		this.collectKeys(query, keys);
-		const ids = [
-			...new Set(
-				Array.from(keys)
-					.map((k) => k.split("_")[0])
-					// .filter(Boolean) removed this from AI's version because it masks bugs. EK
-			),
-		];
-		return ids.length === 1 ? ids[0] : null;
-	}
-
-	private collectKeys(obj: any, keys: Set<string>): void {
-		if (typeof obj === "string" && obj.includes("_")) {
-			keys.add(obj);
-		} else if (Array.isArray(obj)) {
-			obj.forEach((item) => this.collectKeys(item, keys));
-		} else if (obj && typeof obj === "object") {
-			Object.values(obj).forEach((value) => this.collectKeys(value, keys));
-		}
-	}
-
-	private applyWhere(dataset: Section[], where: any): Section[] {
-		if (!where || Object.keys(where).length === 0) return dataset;
-		return dataset.filter((section) => this.evaluateFilter(section, where));
-	}
-
-	private evaluateFilter(section: Section, filter: any): boolean {
-		// fixed this from AI's version - EK. No defensive programming and masking of bugs.
-		if (!filter || typeof filter !== "object") throw new InsightError("Invalid filter");
-
-		const [key, value] = Object.entries(filter)[0];
-		switch (key) {
-			case "AND":
-				return Array.isArray(value) && value.every((f) => this.evaluateFilter(section, f));
-			case "OR":
-				return Array.isArray(value) && value.some((f) => this.evaluateFilter(section, f));
-			case "NOT":
-				return !this.evaluateFilter(section, value);
-			case "LT":
-				return this.evaluateComparison(section, value, (a, b) => a < b);
-			case "GT":
-				return this.evaluateComparison(section, value, (a, b) => a > b);
-			case "EQ":
-				return this.evaluateComparison(section, value, (a, b) => a === b);
-			case "IS":
-				return this.evaluateStringComparison(section, value);
-			default:
-				return false;
-		}
-	}
-
-	private evaluateComparison(section: Section, comparison: any, op: (a: number, b: number) => boolean): boolean {
-		const [fieldKey, expectedValue] = Object.entries(comparison)[0];
-		const field = fieldKey.split("_")[1];
-		const value = (section as any)[field];
-		return typeof value === "number" && op(value, expectedValue as number);
-	}
-
-	private evaluateStringComparison(section: Section, comparison: any): boolean {
-		const [fieldKey, pattern] = Object.entries(comparison)[0];
-		const field = fieldKey.split("_")[1];
-		const value = (section as any)[field];
-		if (typeof value !== "string" || typeof pattern !== "string") return false;
-
-		const startWild = pattern.startsWith("*");
-		const endWild = pattern.endsWith("*");
-		const cleanPattern = pattern.replace(/^\*|\*$/g, "");
-
-		if (startWild && endWild) return value.includes(cleanPattern);
-		if (startWild) return value.endsWith(cleanPattern);
-		if (endWild) return value.startsWith(cleanPattern);
-		return value === cleanPattern;
-	}
-
-	private applyOptions(sections: Section[], options: any): InsightResult[] { //takes filtered sections and query options, returns array of InsightResult objects.
-		const results = sections.map((section) => {
-			const result: InsightResult = {};
-			options.COLUMNS.forEach((col: string) => {
-				const field = col.split("_")[1];
-				result[col] = (section as any)[field];
-			});
-			return result;
-		});
-
-		if (options.ORDER) {
-			const orderKey = options.ORDER;
-			results.sort((a, b) => {
-				const aVal = a[orderKey];
-				const bVal = b[orderKey];
-				if (typeof aVal === "number" && typeof bVal === "number") {
-					return aVal - bVal;
-				}
-				return String(aVal).localeCompare(String(bVal));
-			});
-		}
-
-		return results;
-	}
+	// private extractDatasetId(query: Record<string, any>): string | null {
+	// 	const keys = new Set<string>();
+	// 	this.collectKeys(query, keys);
+	// 	const ids = [
+	// 		...new Set(
+	// 			Array.from(keys).map((k) => k.split("_")[0])
+	// 			// .filter(Boolean) removed this from AI's version because it masks bugs. EK
+	// 		),
+	// 	];
+	// 	return ids.length === 1 ? ids[0] : null;
+	// }
+	//
+	// private collectKeys(obj: any, keys: Set<string>): void {
+	// 	if (typeof obj === "string" && obj.includes("_")) {
+	// 		keys.add(obj);
+	// 	} else if (Array.isArray(obj)) {
+	// 		obj.forEach((item) => this.collectKeys(item, keys));
+	// 	} else if (obj && typeof obj === "object") {
+	// 		Object.values(obj).forEach((value) => this.collectKeys(value, keys));
+	// 	}
+	// }
+	//
+	// private applyWhere(dataset: Section[], where: any): Section[] {
+	// 	if (!where || Object.keys(where).length === 0) return dataset;
+	// 	return dataset.filter((section) => this.evaluateFilter(section, where));
+	// }
+	//
+	// private evaluateFilter(section: Section, filter: any): boolean {
+	// 	// fixed this from AI's version - EK. No defensive programming and masking of bugs.
+	// 	if (!filter || typeof filter !== "object") throw new InsightError("Invalid filter");
+	//
+	// 	const [key, value] = Object.entries(filter)[0];
+	// 	switch (key) {
+	// 		case "AND":
+	// 			return Array.isArray(value) && value.every((f) => this.evaluateFilter(section, f));
+	// 		case "OR":
+	// 			return Array.isArray(value) && value.some((f) => this.evaluateFilter(section, f));
+	// 		case "NOT":
+	// 			return !this.evaluateFilter(section, value);
+	// 		case "LT":
+	// 			return this.evaluateComparison(section, value, (a, b) => a < b);
+	// 		case "GT":
+	// 			return this.evaluateComparison(section, value, (a, b) => a > b);
+	// 		case "EQ":
+	// 			return this.evaluateComparison(section, value, (a, b) => a === b);
+	// 		case "IS":
+	// 			return this.evaluateStringComparison(section, value);
+	// 		default:
+	// 			return false;
+	// 	}
+	// }
+	//
+	// private evaluateComparison(section: Section, comparison: any, op: (a: number, b: number) => boolean): boolean {
+	// 	const [fieldKey, expectedValue] = Object.entries(comparison)[0];
+	// 	const field = fieldKey.split("_")[1];
+	// 	const value = (section as any)[field];
+	// 	return typeof value === "number" && op(value, expectedValue as number);
+	// }
+	//
+	// private evaluateStringComparison(section: Section, comparison: any): boolean {
+	// 	const [fieldKey, pattern] = Object.entries(comparison)[0];
+	// 	const field = fieldKey.split("_")[1];
+	// 	const value = (section as any)[field];
+	// 	if (typeof value !== "string" || typeof pattern !== "string") return false;
+	//
+	// 	const startWild = pattern.startsWith("*");
+	// 	const endWild = pattern.endsWith("*");
+	// 	const cleanPattern = pattern.replace(/^\*|\*$/g, "");
+	//
+	// 	if (startWild && endWild) return value.includes(cleanPattern);
+	// 	if (startWild) return value.endsWith(cleanPattern);
+	// 	if (endWild) return value.startsWith(cleanPattern);
+	// 	return value === cleanPattern;
+	// }
+	//
+	// private applyOptions(sections: Section[], options: any): InsightResult[] {
+	// 	//takes filtered sections and query options, returns array of InsightResult objects.
+	// 	const results = sections.map((section) => {
+	// 		const result: InsightResult = {};
+	// 		options.COLUMNS.forEach((col: string) => {
+	// 			const field = col.split("_")[1];
+	// 			result[col] = (section as any)[field];
+	// 		});
+	// 		return result;
+	// 	});
+	//
+	// 	if (options.ORDER) {
+	// 		const orderKey = options.ORDER;
+	// 		results.sort((a, b) => {
+	// 			const aVal = a[orderKey];
+	// 			const bVal = b[orderKey];
+	// 			if (typeof aVal === "number" && typeof bVal === "number") {
+	// 				return aVal - bVal;
+	// 			}
+	// 			return String(aVal).localeCompare(String(bVal));
+	// 		});
+	// 	}
+	//
+	// 	return results;
+	// }
 }
 // Code generated by Claude Sonnet 4 and adjusted as needed by Elena Kolmogorov and Alex Kwok
