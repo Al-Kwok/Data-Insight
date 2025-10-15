@@ -314,50 +314,6 @@ export default class InsightFacade implements IInsightFacade {
 		return results;
 	}
 
-	private async extractSections(content: string): Promise<Section[]> {
-		let zipData: Buffer;
-		try {
-			zipData = Buffer.from(content, "base64");
-		} catch {
-			throw new InsightError("Invalid base64 content");
-		}
-
-		let zip: any;
-		try {
-			zip = await JSZip.loadAsync(zipData);
-		} catch {
-			throw new InsightError("Invalid zip file");
-		}
-
-		const sections: Section[] = [];
-		let hasCoursesFolder = false;
-
-		for (const [path, file] of Object.entries(zip.files)) {
-			if (path.startsWith("courses/")) {
-				hasCoursesFolder = true;
-				if (!(file as any).dir && path !== "courses/") {
-					try {
-						const content = await (file as any).async("text");
-						const data = JSON.parse(content);
-						if (data.result && Array.isArray(data.result)) {
-							data.result.forEach((section: any) => {
-								if (this.hasAllRequiredFields(section)) {
-									sections.push(this.createSection(section));
-								}
-							});
-						}
-					} catch {
-						// Skip invalid files
-					}
-				}
-			}
-		}
-		if (!hasCoursesFolder) {
-			throw new InsightError("Dataset must be contained in courses folder");
-		}
-		return sections;
-	}
-
 	private extractDatasetId(query: Record<string, any>): string | null {
 		const keys = new Set<string>();
 		this.collectKeys(query, keys);
