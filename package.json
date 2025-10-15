@@ -19,7 +19,6 @@
 		"parse5": "8.0.0"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.2.6",
 		"@tsconfig/node24": "24.0.1",
 		"@types/chai": "4.3.0",
 		"@types/chai-as-promised": "7.1.4",
@@ -55,6 +54,5 @@
 		"lint:fix": "eslint src test --ext .ts --fix",
 		"prettier:check": "prettier src/**/*.ts test/**/*.ts --check",
 		"prettier:fix": "prettier src/**/*.ts test/**/*.ts --write"
-	},
-	"packageManager": "yarn@4.10.3"
+	}
 }
