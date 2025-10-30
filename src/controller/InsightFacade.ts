@@ -109,7 +109,7 @@ export default class InsightFacade implements IInsightFacade {
 	}
 
 	public async removeDataset(id: string): Promise<string> {
-		// await this.loadPromise;
+		await this.loadPromise;
 
 		this.datasetValidator.validateId(id);
 
@@ -129,7 +129,7 @@ export default class InsightFacade implements IInsightFacade {
 	}
 
 	public async listDatasets(): Promise<InsightDataset[]> {
-		// await this.loadPromise;
+		await this.loadPromise;
 
 		const result: InsightDataset[] = [];
 
@@ -158,7 +158,7 @@ export default class InsightFacade implements IInsightFacade {
 			throw new InsightError("Query must reference exactly one dataset");
 		}
 
-		// await this.loadPromise;
+		await this.loadPromise;
 		const dataset = this.datasets.get(datasetId);
 		if (!dataset) {
 			throw new InsightError(`Dataset ${datasetId} not found`);
