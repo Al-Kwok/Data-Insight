@@ -8,8 +8,13 @@ interface GeoResponse {
 
 export class GeolocationService {
 	private static readonly BASE_URL = "http://cs310.students.cs.ubc.ca:11316/api/v1/project_team127";
+	private cache = new Map<string, { lat: number; lon: number }>();
 
 	public async getGeolocation(address: string): Promise<{ lat: number; lon: number }> {
+		if (this.cache.has(address)) {
+			return this.cache.get(address)!;
+		}
+
 		const encodedAddress = encodeURIComponent(address);
 		const url = `${GeolocationService.BASE_URL}/${encodedAddress}`;
 

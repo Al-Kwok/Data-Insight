@@ -143,6 +143,10 @@ export class QueryProcessor {
 		if (typeof a === "number" && typeof b === "number") {
 			return a - b;
 		}
-		return String(a).localeCompare(String(b));
+		const strA = String(a);
+		const strB = String(b);
+		if (strA < strB) return -1;
+		if (strA > strB) return 1;
+		return 0;
 	}
 }
