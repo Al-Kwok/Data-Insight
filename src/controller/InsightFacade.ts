@@ -9,10 +9,12 @@ import {
 	ResultTooLargeError,
 } from "./IInsightFacade";
 import { Section } from "./Section";
+import { Room } from "./Room";
 import * as fs from "fs-extra";
 
 import { QueryValidator } from "./QueryValidator";
 import { DatasetValidator } from "./DatasetValidator";
+import { QueryProcessor } from "./QueryProcessor";
 
 export default class InsightFacade implements IInsightFacade {
 	private static readonly MAX_RESULTS = 5000;
@@ -20,13 +22,14 @@ export default class InsightFacade implements IInsightFacade {
 	private static readonly JSON_EXTENSION_LENGTH = 5;
 
 	private readonly persistDir: string = "./data";
-	private validator = new QueryValidator();
+	private queryValidator = new QueryValidator();
 	private datasetValidator = new DatasetValidator();
-	private datasets = new Map<string, Section[]>();
+	private queryProcessor = new QueryProcessor();
+	private datasets = new Map<string, Section[] | Room[]>();
 	private loadPromise: Promise<void>;
 
 	constructor() {
-		this.datasets = new Map<string, Section[]>();
+		this.datasets = new Map<string, Section[] | Room[]>();
 		this.loadPromise = this.loadPersistedDatasets();
 	}
 
@@ -39,20 +42,25 @@ export default class InsightFacade implements IInsightFacade {
 			throw new InsightError(`Dataset with id '${id}' already exists`);
 		}
 
-		if (kind !== InsightDatasetKind.Sections) {
-			throw new InsightError("Only 'sections' kind is supported");
+		if (kind === InsightDatasetKind.Sections) {
+			const sections = await this.datasetValidator.extractSectionsFromZip(content);
+			if (sections.length === 0) {
+				throw new InsightError("No valid sections found in dataset");
+			}
+			this.datasets.set(id, sections);
+		} else if (kind === InsightDatasetKind.Rooms) {
+			const rooms = await this.datasetValidator.extractRoomsFromZip(content);
+			if (rooms.length === 0) {
+				throw new InsightError("No valid rooms found in dataset");
+			}
+			this.datasets.set(id, rooms);
+		} else {
+			throw new InsightError("Unsupported dataset kind");
 		}
-
-		const sections = await this.datasetValidator.extractSectionsFromZip(content);
-
-		if (sections.length === 0) {
-			throw new InsightError("No valid sections found in dataset");
-		}
-
-		this.datasets.set(id, sections);
 
 		try {
-			await this.saveToDisk(id, sections);
+			const dataset = this.datasets.get(id)!;
+			await this.saveToDisk(id, dataset);
 		} catch (error) {
 			this.datasets.delete(id);
 			throw new InsightError(`Failed to persist dataset: ${error}`);
@@ -61,10 +69,10 @@ export default class InsightFacade implements IInsightFacade {
 		return Array.from(this.datasets.keys());
 	}
 
-	private async saveToDisk(id: string, sections: Section[]): Promise<void> {
+	private async saveToDisk(id: string, dataset: Section[] | Room[]): Promise<void> {
 		await fs.ensureDir(this.persistDir);
 		const filepath = `${this.persistDir}/${id}.json`;
-		await fs.writeJSON(filepath, sections, { spaces: 2 });
+		await fs.writeJSON(filepath, dataset, { spaces: 2 });
 	}
 
 	private async loadPersistedDatasets(): Promise<void> {
@@ -80,9 +88,9 @@ export default class InsightFacade implements IInsightFacade {
 				.map(async (file) => {
 					try {
 						const filepath = `${this.persistDir}/${file}`;
-						const sections: Section[] = await fs.readJSON(filepath);
+						const dataset: Section[] | Room[] = await fs.readJSON(filepath);
 						const datasetId = file.slice(0, -InsightFacade.JSON_EXTENSION_LENGTH);
-						return { datasetId, sections };
+						return { datasetId, dataset };
 					} catch {
 						return null;
 					}
@@ -92,7 +100,7 @@ export default class InsightFacade implements IInsightFacade {
 
 			for (const result of results) {
 				if (result !== null) {
-					this.datasets.set(result.datasetId, result.sections);
+					this.datasets.set(result.datasetId, result.dataset);
 				}
 			}
 		} catch {
@@ -125,11 +133,12 @@ export default class InsightFacade implements IInsightFacade {
 
 		const result: InsightDataset[] = [];
 
-		for (const [id, sections] of this.datasets.entries()) {
+		for (const [id, dataset] of this.datasets.entries()) {
+			const kind = this.isRoomDataset(dataset) ? InsightDatasetKind.Rooms : InsightDatasetKind.Sections;
 			result.push({
 				id: id,
-				kind: InsightDatasetKind.Sections,
-				numRows: sections.length,
+				kind,
+				numRows: dataset.length,
 			});
 		}
 
@@ -142,7 +151,7 @@ export default class InsightFacade implements IInsightFacade {
 		}
 
 		const q = query as Record<string, any>;
-		this.validator.validateQueryStructure(q);
+		this.queryValidator.validateQueryStructure(q);
 
 		const datasetId = this.extractDatasetId(q);
 		if (!datasetId) {
@@ -156,12 +165,25 @@ export default class InsightFacade implements IInsightFacade {
 		}
 
 		const filtered = this.applyWhere(dataset, q.WHERE);
-		// improved efficiency from AI's version - EK
-		if (filtered.length > InsightFacade.MAX_RESULTS) {
-			throw new ResultTooLargeError("Query result exceeds 5000 rows");
+
+		let results: InsightResult[];
+		if (q.TRANSFORMATIONS) {
+			results = this.queryProcessor.applyTransformations(filtered, q.TRANSFORMATIONS);
+			if (results.length > InsightFacade.MAX_RESULTS) {
+				throw new ResultTooLargeError("Query result exceeds 5000 rows");
+			}
+			results = this.selectColumns(results, q.OPTIONS.COLUMNS);
+		} else {
+			if (filtered.length > InsightFacade.MAX_RESULTS) {
+				throw new ResultTooLargeError("Query result exceeds 5000 rows");
+			}
+			results = this.applyOptions(filtered, q.OPTIONS);
 		}
 
-		const results = this.applyOptions(filtered, q.OPTIONS);
+		if (q.OPTIONS.ORDER) {
+			results = this.queryProcessor.applySorting(results, q.OPTIONS.ORDER);
+		}
+
 		return results;
 	}
 
@@ -187,47 +209,47 @@ export default class InsightFacade implements IInsightFacade {
 		}
 	}
 
-	private applyWhere(dataset: Section[], where: any): Section[] {
+	private applyWhere(dataset: Section[] | Room[], where: any): (Section | Room)[] {
 		if (!where || Object.keys(where).length === 0) return dataset;
-		return dataset.filter((section) => this.evaluateFilter(section, where));
+		return dataset.filter((item) => this.evaluateFilter(item, where));
 	}
 
-	private evaluateFilter(section: Section, filter: any): boolean {
+	private evaluateFilter(item: Section | Room, filter: any): boolean {
 		// fixed this from AI's version - EK. No defensive programming and masking of bugs.
 		if (!filter || typeof filter !== "object") throw new InsightError("Invalid filter");
 
 		const [key, value] = Object.entries(filter)[0];
 		switch (key) {
 			case "AND":
-				return Array.isArray(value) && value.every((f) => this.evaluateFilter(section, f));
+				return Array.isArray(value) && value.every((f) => this.evaluateFilter(item, f));
 			case "OR":
-				return Array.isArray(value) && value.some((f) => this.evaluateFilter(section, f));
+				return Array.isArray(value) && value.some((f) => this.evaluateFilter(item, f));
 			case "NOT":
-				return !this.evaluateFilter(section, value);
+				return !this.evaluateFilter(item, value);
 			case "LT":
-				return this.evaluateComparison(section, value, (a, b) => a < b);
+				return this.evaluateComparison(item, value, (a, b) => a < b);
 			case "GT":
-				return this.evaluateComparison(section, value, (a, b) => a > b);
+				return this.evaluateComparison(item, value, (a, b) => a > b);
 			case "EQ":
-				return this.evaluateComparison(section, value, (a, b) => a === b);
+				return this.evaluateComparison(item, value, (a, b) => a === b);
 			case "IS":
-				return this.evaluateStringComparison(section, value);
+				return this.evaluateStringComparison(item, value);
 			default:
 				return false;
 		}
 	}
 
-	private evaluateComparison(section: Section, comparison: any, op: (a: number, b: number) => boolean): boolean {
+	private evaluateComparison(item: Section | Room, comparison: any, op: (a: number, b: number) => boolean): boolean {
 		const [fieldKey, expectedValue] = Object.entries(comparison)[0];
 		const field = fieldKey.split("_")[1];
-		const value = (section as any)[field];
+		const value = (item as any)[field];
 		return typeof value === "number" && op(value, expectedValue as number);
 	}
 
-	private evaluateStringComparison(section: Section, comparison: any): boolean {
+	private evaluateStringComparison(item: Section | Room, comparison: any): boolean {
 		const [fieldKey, pattern] = Object.entries(comparison)[0];
 		const field = fieldKey.split("_")[1];
-		const value = (section as any)[field];
+		const value = (item as any)[field];
 		if (typeof value !== "string" || typeof pattern !== "string") return false;
 
 		const startWild = pattern.startsWith("*");
@@ -240,13 +262,12 @@ export default class InsightFacade implements IInsightFacade {
 		return value === cleanPattern;
 	}
 
-	private applyOptions(sections: Section[], options: any): InsightResult[] {
-		//takes filtered sections and query options, returns array of InsightResult objects.
-		const results = sections.map((section) => {
+	private applyOptions(items: (Section | Room)[], options: any): InsightResult[] {
+		const results = items.map((item) => {
 			const result: InsightResult = {};
 			options.COLUMNS.forEach((col: string) => {
 				const field = col.split("_")[1];
-				result[col] = (section as any)[field];
+				result[col] = (item as any)[field];
 			});
 			return result;
 		});
@@ -264,5 +285,19 @@ export default class InsightFacade implements IInsightFacade {
 		}
 		return results;
 	}
+
+	private selectColumns(results: InsightResult[], columns: string[]): InsightResult[] {
+		return results.map((result) => {
+			const selected: InsightResult = {};
+			columns.forEach((col) => {
+				selected[col] = result[col];
+			});
+			return selected;
+		});
+	}
+
+	private isRoomDataset(dataset: Section[] | Room[]): dataset is Room[] {
+		return dataset.length > 0 && "fullname" in dataset[0];
+	}
 }
-// Code generated by Claude Sonnet 4 and adjusted as needed by Elena Kolmogorov and Alex Kwok
+// End Code generated by Claude Sonnet 4 and adjusted as needed by Elena Kolmogorov and Alex Kwok

@@ -8,11 +8,19 @@ export class QueryValidator {
 			throw new InsightError("Query must have WHERE and OPTIONS");
 		}
 		const keys = Object.keys(q);
-		if (keys.length !== 2 || !keys.includes("WHERE") || !keys.includes("OPTIONS")) {
-			throw new InsightError("Query must have exactly WHERE and OPTIONS");
+		const validKeys = ["WHERE", "OPTIONS", "TRANSFORMATIONS"];
+		if (!keys.every((key) => validKeys.includes(key))) {
+			throw new InsightError("Query contains invalid keys");
+		}
+		const MAX_QUERY_KEYS = 3;
+		if (keys.length < 2 || keys.length > MAX_QUERY_KEYS) {
+			throw new InsightError("Query must have WHERE, OPTIONS, and optionally TRANSFORMATIONS");
 		}
 		this.validateWhere(q.WHERE);
-		this.validateOptions(q.OPTIONS);
+		if (q.TRANSFORMATIONS) {
+			this.validateTransformations(q.TRANSFORMATIONS);
+		}
+		this.validateOptions(q.OPTIONS, q.TRANSFORMATIONS);
 	}
 
 	private validateWhere(where: any): void {
@@ -114,8 +122,22 @@ export class QueryValidator {
 			throw new InsightError("Invalid key format");
 		}
 		const [, field] = parts;
-		const mfields = ["avg", "pass", "fail", "audit", "year"];
-		const sfields = ["dept", "id", "instructor", "title", "uuid"];
+		const mfields = ["avg", "pass", "fail", "audit", "year", "lat", "lon", "seats"];
+		const sfields = [
+			"dept",
+			"id",
+			"instructor",
+			"title",
+			"uuid",
+			"fullname",
+			"shortname",
+			"number",
+			"name",
+			"address",
+			"type",
+			"furniture",
+			"href",
+		];
 		if (expectedType === "mfield" && !mfields.includes(field)) {
 			throw new InsightError(`Invalid mfield: ${field}`);
 		}
@@ -124,7 +146,85 @@ export class QueryValidator {
 		}
 	}
 
-	private validateOptions(options: any): void {
+	private validateTransformations(transformations: any): void {
+		if (!transformations || typeof transformations !== "object" || Array.isArray(transformations)) {
+			throw new InsightError("TRANSFORMATIONS must be an object");
+		}
+		if (!transformations.GROUP || !transformations.APPLY) {
+			throw new InsightError("TRANSFORMATIONS must have GROUP and APPLY");
+		}
+		const keys = Object.keys(transformations);
+		if (keys.length !== 2) {
+			throw new InsightError("TRANSFORMATIONS must have exactly GROUP and APPLY");
+		}
+		this.validateGroup(transformations.GROUP);
+		this.validateApply(transformations.APPLY);
+	}
+
+	private validateGroup(group: any): void {
+		if (!Array.isArray(group)) {
+			throw new InsightError("GROUP must be an array");
+		}
+		if (group.length === 0) {
+			throw new InsightError("GROUP must not be empty");
+		}
+		group.forEach((key: any) => {
+			if (typeof key !== "string") {
+				throw new InsightError("GROUP keys must be strings");
+			}
+			this.validateKey(key, this.getKeyType(key));
+		});
+	}
+
+	private validateApply(apply: any): void {
+		if (!Array.isArray(apply)) {
+			throw new InsightError("APPLY must be an array");
+		}
+		const applyKeys = new Set<string>();
+		apply.forEach((rule: any) => {
+			if (!rule || typeof rule !== "object" || Array.isArray(rule)) {
+				throw new InsightError("APPLY rule must be an object");
+			}
+			const ruleKeys = Object.keys(rule);
+			if (ruleKeys.length !== 1) {
+				throw new InsightError("APPLY rule must have exactly one key");
+			}
+			const applyKey = ruleKeys[0];
+			if (applyKey.includes("_")) {
+				throw new InsightError("Apply key cannot contain underscores");
+			}
+			if (applyKeys.has(applyKey)) {
+				throw new InsightError("Apply keys must be unique");
+			}
+			applyKeys.add(applyKey);
+			this.validateApplyRule(rule[applyKey]);
+		});
+	}
+
+	private validateApplyRule(rule: any): void {
+		if (!rule || typeof rule !== "object" || Array.isArray(rule)) {
+			throw new InsightError("Apply rule must be an object");
+		}
+		const keys = Object.keys(rule);
+		if (keys.length !== 1) {
+			throw new InsightError("Apply rule must have exactly one operation");
+		}
+		const [operation, field] = Object.entries(rule)[0];
+		const validOperations = ["MAX", "MIN", "AVG", "SUM", "COUNT"];
+		if (!validOperations.includes(operation)) {
+			throw new InsightError(`Invalid apply operation: ${operation}`);
+		}
+		if (typeof field !== "string") {
+			throw new InsightError("Apply field must be a string");
+		}
+		if (operation === "COUNT") {
+			this.validateKey(field, this.getKeyType(field));
+		} else {
+			this.validateKey(field, "mfield");
+		}
+	}
+
+	private validateOptions(options: any, transformations?: any): void {
 		if (!options || typeof options !== "object" || Array.isArray(options)) {
 			throw new InsightError("OPTIONS must be an object");
 		}
@@ -134,7 +234,6 @@ export class QueryValidator {
 		if (!Array.isArray(options.COLUMNS) || options.COLUMNS.length === 0) {
 			throw new InsightError("COLUMNS must be a non-empty array");
 		}
-		//caught this missing check and added it - EK
 		const validOptionKeys = ["COLUMNS", "ORDER"];
 		const optionKeys = Object.keys(options);
 		optionKeys.forEach((key) => {
@@ -142,27 +241,63 @@ export class QueryValidator {
 				throw new InsightError(`Invalid OPTIONS key: ${key}`);
 			}
 		});
-		//the rest of AI-generated content is carefully checked and approved - EK
+
+		const applyKeys = transformations ? this.getApplyKeys(transformations.APPLY) : [];
+		const groupKeys = transformations ? transformations.GROUP : [];
+
 		options.COLUMNS.forEach((col: any) => {
 			if (typeof col !== "string") {
 				throw new InsightError("Column must be a string");
 			}
-			this.validateKey(col, this.getKeyType(col));
-		});
-		if (options.ORDER) {
-			//The ORDER key must be a key found in the COLUMN KEY_LIST array
-			if (typeof options.ORDER !== "string") {
-				throw new InsightError("ORDER must be a string");
+			if (transformations) {
+				if (!groupKeys.includes(col) && !applyKeys.includes(col)) {
+					throw new InsightError("COLUMNS must only contain GROUP keys or APPLY keys when TRANSFORMATIONS is present");
+				}
+			} else {
+				this.validateKey(col, this.getKeyType(col));
 			}
-			if (!options.COLUMNS.includes(options.ORDER)) {
+		});
+
+		if (options.ORDER) {
+			this.validateOrder(options.ORDER, options.COLUMNS);
+		}
+	}
+
+	private validateOrder(order: any, columns: string[]): void {
+		if (typeof order === "string") {
+			if (!columns.includes(order)) {
 				throw new InsightError("ORDER key must be in COLUMNS");
 			}
+		} else if (typeof order === "object" && !Array.isArray(order)) {
+			if (!order.dir || !order.keys) {
+				throw new InsightError("ORDER object must have dir and keys");
+			}
+			if (order.dir !== "UP" && order.dir !== "DOWN") {
+				throw new InsightError("ORDER dir must be UP or DOWN");
+			}
+			if (!Array.isArray(order.keys) || order.keys.length === 0) {
+				throw new InsightError("ORDER keys must be a non-empty array");
+			}
+			order.keys.forEach((key: any) => {
+				if (typeof key !== "string") {
+					throw new InsightError("ORDER keys must be strings");
+				}
+				if (!columns.includes(key)) {
+					throw new InsightError("All ORDER keys must be in COLUMNS");
+				}
+			});
+		} else {
+			throw new InsightError("ORDER must be a string or object");
 		}
+	}
+
+	private getApplyKeys(apply: any[]): string[] {
+		return apply.map((rule) => Object.keys(rule)[0]);
 	}
 
 	private getKeyType(key: string): "mfield" | "sfield" {
 		const field = key.split("_")[1];
-		const mfields = ["avg", "pass", "fail", "audit", "year"];
+		const mfields = ["avg", "pass", "fail", "audit", "year", "lat", "lon", "seats"];
 		return mfields.includes(field) ? "mfield" : "sfield";
 	}
 }
