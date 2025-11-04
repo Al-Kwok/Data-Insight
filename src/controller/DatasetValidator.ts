@@ -180,31 +180,56 @@ export class DatasetValidator {
 		content: string
 	): Array<{ fullname: string; shortname: string; address: string; href: string }> {
 		const document = parse5.parse(content);
-		const buildings: Array<{ fullname: string; shortname: string; address: string; href: string }> = [];
-
 		const tables = this.findElementsByTagName(document, "table");
 
 		for (const table of tables) {
-			const rows = this.findElementsByTagName(table, "tr");
+			// Check if this table has the right structure
+			if (this.isBuildingTable(table)) {
+				return this.extractBuildingsFromTable(table);
+			}
+		}
+		throw new InsightError("No valid building table found");
+	}
 
-			for (const row of rows) {
-				const cells = this.findElementsByTagName(row, "td");
+	private isBuildingTable(table: any): boolean {
+		const rows = this.findElementsByTagName(table, "tr");
+		for (const row of rows) {
+			const cells = this.findElementsByTagName(row, "td");
+			// If we find at least one row with the expected classes, it's our table
+			const hasExpectedCells = cells.some(
+				(cell) =>
+					this.hasClass(cell, "views-field-title") ||
+					this.hasClass(cell, "views-field-field-building-address") ||
+					this.hasClass(cell, "views-field-field-building-code")
+			);
+			if (hasExpectedCells) return true;
+		}
+		return false;
+	}
 
-				const titleCell = cells.find((cell) => this.hasClass(cell, "views-field-title"));
-				const addressCell = cells.find((cell) => this.hasClass(cell, "views-field-field-building-address"));
-				const codeCell = cells.find((cell) => this.hasClass(cell, "views-field-field-building-code"));
+	private extractBuildingsFromTable(
+		table: any
+	): Array<{ fullname: string; shortname: string; address: string; href: string }> {
+		const buildings: Array<{ fullname: string; shortname: string; address: string; href: string }> = [];
+		const rows = this.findElementsByTagName(table, "tr");
 
-				if (titleCell && addressCell && codeCell) {
-					const link = this.findElementsByTagName(titleCell, "a")[0];
-					if (link?.attrs) {
-						const href = link.attrs.find((attr: { name: string; value: string }) => attr.name === "href")?.value;
-						const fullname = this.getTextContent(titleCell);
-						const address = this.getTextContent(addressCell);
-						const shortname = this.getTextContent(codeCell);
+		for (const row of rows) {
+			const cells = this.findElementsByTagName(row, "td");
 
-						if (href && fullname && address && shortname) {
-							buildings.push({ fullname, shortname, address, href });
-						}
+			const titleCell = cells.find((cell) => this.hasClass(cell, "views-field-title"));
+			const addressCell = cells.find((cell) => this.hasClass(cell, "views-field-field-building-address"));
+			const codeCell = cells.find((cell) => this.hasClass(cell, "views-field-field-building-code"));
+
+			if (titleCell && addressCell && codeCell) {
+				const link = this.findElementsByTagName(titleCell, "a")[0];
+				if (link?.attrs) {
+					const href = link.attrs.find((attr: { name: string; value: string }) => attr.name === "href")?.value;
+					const fullname = this.getTextContent(titleCell);
+					const address = this.getTextContent(addressCell);
+					const shortname = this.getTextContent(codeCell);
+
+					if (href && fullname && address && shortname) {
+						buildings.push({ fullname, shortname, address, href });
 					}
 				}
 			}

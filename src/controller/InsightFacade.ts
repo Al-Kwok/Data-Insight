@@ -18,7 +18,6 @@ import { QueryProcessor } from "./QueryProcessor";
 
 export default class InsightFacade implements IInsightFacade {
 	private static readonly MAX_RESULTS = 5000;
-	private static readonly OVERALL_YEAR = 1900;
 	private static readonly JSON_EXTENSION_LENGTH = 5;
 
 	private readonly persistDir: string = "./data";
