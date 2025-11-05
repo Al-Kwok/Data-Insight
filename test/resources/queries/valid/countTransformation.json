@@ -1,0 +1,19 @@
+{
+	"title": "COUNT transformation",
+	"input": {
+		"WHERE": {},
+		"OPTIONS": {
+			"COLUMNS": ["sections_dept", "numSections"]
+		},
+		"TRANSFORMATIONS": {
+			"GROUP": ["sections_dept"],
+			"APPLY": [{
+				"numSections": {
+					"COUNT": "sections_id"
+				}
+			}]
+		}
+	},
+	"errorExpected": false,
+	"expected": []
+}

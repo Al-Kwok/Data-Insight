@@ -299,6 +299,77 @@ describe("InsightFacade", function () {
 		});
 	});
 
+	describe("Transformations", function () {
+		beforeEach(async function () {
+			await clearDisk();
+			facade = new InsightFacade();
+			await facade.addDataset("sections", sectionsTiny, InsightDatasetKind.Sections);
+		});
+
+		it("should perform GROUP BY with MAX aggregation", async function () {
+			const query = {
+				WHERE: {},
+				OPTIONS: {
+					COLUMNS: ["sections_dept", "maxAvg"],
+				},
+				TRANSFORMATIONS: {
+					GROUP: ["sections_dept"],
+					APPLY: [
+						{
+							maxAvg: {
+								MAX: "sections_avg",
+							},
+						},
+					],
+				},
+			};
+			const result = await facade.performQuery(query);
+			expect(result).to.be.an("array");
+			expect(result.length).to.be.greaterThan(0);
+			expect(result[0]).to.have.property("sections_dept");
+			expect(result[0]).to.have.property("maxAvg");
+		});
+
+		it("should perform multi-column sorting", async function () {
+			const query = {
+				WHERE: {},
+				OPTIONS: {
+					COLUMNS: ["sections_dept", "sections_avg"],
+					ORDER: {
+						dir: "UP",
+						keys: ["sections_dept", "sections_avg"],
+					},
+				},
+			};
+			const result = await facade.performQuery(query);
+			expect(result).to.be.an("array");
+			expect(result.length).to.be.greaterThan(0);
+		});
+
+		it("should perform AVG aggregation", async function () {
+			const query = {
+				WHERE: {},
+				OPTIONS: {
+					COLUMNS: ["sections_dept", "avgGrade"],
+				},
+				TRANSFORMATIONS: {
+					GROUP: ["sections_dept"],
+					APPLY: [
+						{
+							avgGrade: {
+								AVG: "sections_avg",
+							},
+						},
+					],
+				},
+			};
+			const result = await facade.performQuery(query);
+			expect(result).to.be.an("array");
+			expect(result[0]).to.have.property("avgGrade");
+			expect(typeof result[0].avgGrade).to.equal("number");
+		});
+	});
+
 	describe("PerformQuery", function () {
 		/**
 		 * Loads the TestQuery specified in the test name and asserts the behaviour of performQuery.

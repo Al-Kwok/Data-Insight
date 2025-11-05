@@ -1,0 +1,19 @@
+{
+	"title": "SUM transformation",
+	"input": {
+		"WHERE": {},
+		"OPTIONS": {
+			"COLUMNS": ["sections_dept", "totalPass"]
+		},
+		"TRANSFORMATIONS": {
+			"GROUP": ["sections_dept"],
+			"APPLY": [{
+				"totalPass": {
+					"SUM": "sections_pass"
+				}
+			}]
+		}
+	},
+	"errorExpected": false,
+	"expected": []
+}
