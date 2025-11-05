@@ -142,6 +142,7 @@ export default class InsightFacade implements IInsightFacade {
 		}
 
 		this.datasets.delete(id);
+		this.datasetKinds.delete(id);
 
 		try {
 			const filepath = `${this.persistDir}/${id}.json`;
@@ -303,7 +304,9 @@ export default class InsightFacade implements IInsightFacade {
 				if (typeof aVal === "number" && typeof bVal === "number") {
 					return aVal - bVal;
 				}
-				return String(aVal).localeCompare(String(bVal));
+				if (aVal < bVal) return -1;
+				if (aVal > bVal) return 1;
+				return 0;
 			});
 		}
 		return results;
