@@ -36,7 +36,6 @@ export class GeolocationService {
 
 			const result = { lat: data.lat, lon: data.lon };
 			GeolocationService.cache.set(address, result);
-
 			return result;
 		} catch (error) {
 			if (error instanceof InsightError) {

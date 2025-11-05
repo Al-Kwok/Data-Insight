@@ -193,15 +193,13 @@ export default class InsightFacade implements IInsightFacade {
 		let results: InsightResult[];
 		if (q.TRANSFORMATIONS) {
 			results = this.queryProcessor.applyTransformations(filtered, q.TRANSFORMATIONS);
-			if (results.length > InsightFacade.MAX_RESULTS) {
-				throw new ResultTooLargeError("Query result exceeds 5000 rows");
-			}
 			results = this.selectColumns(results, q.OPTIONS.COLUMNS);
 		} else {
-			if (filtered.length > InsightFacade.MAX_RESULTS) {
-				throw new ResultTooLargeError("Query result exceeds 5000 rows");
-			}
 			results = this.applyOptions(filtered, q.OPTIONS);
+		}
+
+		if (results.length > InsightFacade.MAX_RESULTS) {
+			throw new ResultTooLargeError("Query result exceeds 5000 rows");
 		}
 
 		if (q.OPTIONS.ORDER) {
@@ -216,8 +214,9 @@ export default class InsightFacade implements IInsightFacade {
 		this.collectKeys(query, keys);
 		const ids = [
 			...new Set(
-				Array.from(keys).map((k) => k.split("_")[0])
-				// .filter(Boolean) removed this from AI's version because it masks bugs. EK
+				Array.from(keys)
+					.map((k) => k.split("_")[0])
+					.filter(Boolean)
 			),
 		];
 		return ids.length === 1 ? ids[0] : null;
@@ -287,7 +286,7 @@ export default class InsightFacade implements IInsightFacade {
 	}
 
 	private applyOptions(items: (Section | Room)[], options: any): InsightResult[] {
-		const results = items.map((item) => {
+		return items.map((item) => {
 			const result: InsightResult = {};
 			options.COLUMNS.forEach((col: string) => {
 				const field = col.split("_")[1];
@@ -295,21 +294,6 @@ export default class InsightFacade implements IInsightFacade {
 			});
 			return result;
 		});
-
-		if (options.ORDER) {
-			const orderKey = options.ORDER;
-			results.sort((a, b) => {
-				const aVal = a[orderKey];
-				const bVal = b[orderKey];
-				if (typeof aVal === "number" && typeof bVal === "number") {
-					return aVal - bVal;
-				}
-				if (aVal < bVal) return -1;
-				if (aVal > bVal) return 1;
-				return 0;
-			});
-		}
-		return results;
 	}
 
 	private selectColumns(results: InsightResult[], columns: string[]): InsightResult[] {
