@@ -1,0 +1,19 @@
+{
+	"title": "MIN transformation",
+	"input": {
+		"WHERE": {},
+		"OPTIONS": {
+			"COLUMNS": ["sections_dept", "minAvg"]
+		},
+		"TRANSFORMATIONS": {
+			"GROUP": ["sections_dept"],
+			"APPLY": [{
+				"minAvg": {
+					"MIN": "sections_avg"
+				}
+			}]
+		}
+	},
+	"errorExpected": false,
+	"expected": []
+}

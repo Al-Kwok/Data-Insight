@@ -1,0 +1,19 @@
+{
+	"title": "AVG transformation",
+	"input": {
+		"WHERE": {},
+		"OPTIONS": {
+			"COLUMNS": ["sections_dept", "avgGrade"]
+		},
+		"TRANSFORMATIONS": {
+			"GROUP": ["sections_dept"],
+			"APPLY": [{
+				"avgGrade": {
+					"AVG": "sections_avg"
+				}
+			}]
+		}
+	},
+	"errorExpected": false,
+	"expected": []
+}
