@@ -117,7 +117,13 @@ export class DatasetValidator {
 	public async extractRoomsFromZip(content: string): Promise<Room[]> {
 		const zip = await this.loadZipFile(content);
 		const buildings = await this.extractBuildingsFromIndex(zip);
-		return this.processAllBuildings(zip, buildings);
+		const rooms = await this.processAllBuildings(zip, buildings);
+
+		if (rooms.length === 0) {
+			throw new InsightError("No valid rooms found in dataset");
+		}
+
+		return rooms;
 	}
 
 	private async loadZipFile(content: string): Promise<any> {
@@ -145,10 +151,6 @@ export class DatasetValidator {
 
 		const indexContent = await indexFile.async("text");
 		const buildings = this.parseIndexFile(indexContent);
-
-		if (buildings.length === 0) {
-			throw new InsightError("No valid buildings found in index.htm");
-		}
 
 		return buildings;
 	}
@@ -183,26 +185,25 @@ export class DatasetValidator {
 		const tables = this.findElementsByTagName(document, "table");
 
 		for (const table of tables) {
-			// Check if this table has the right structure
 			if (this.isBuildingTable(table)) {
 				return this.extractBuildingsFromTable(table);
 			}
 		}
-		throw new InsightError("No valid building table found");
+		return [];
 	}
 
 	private isBuildingTable(table: any): boolean {
 		const rows = this.findElementsByTagName(table, "tr");
 		for (const row of rows) {
 			const cells = this.findElementsByTagName(row, "td");
-			// If we find at least one row with the expected classes, it's our table
-			const hasExpectedCells = cells.some(
-				(cell) =>
-					this.hasClass(cell, "views-field-title") ||
-					this.hasClass(cell, "views-field-field-building-address") ||
-					this.hasClass(cell, "views-field-field-building-code")
-			);
-			if (hasExpectedCells) return true;
+
+			const hasTitle = cells.some((cell) => this.hasClass(cell, "views-field-title"));
+			const hasAddress = cells.some((cell) => this.hasClass(cell, "views-field-field-building-address"));
+			const hasCode = cells.some((cell) => this.hasClass(cell, "views-field-field-building-code"));
+
+			if (hasTitle && hasAddress && hasCode) {
+				return true;
+			}
 		}
 		return false;
 	}
@@ -234,7 +235,6 @@ export class DatasetValidator {
 				}
 			}
 		}
-
 		return buildings;
 	}
 
