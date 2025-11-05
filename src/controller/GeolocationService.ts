@@ -8,11 +8,11 @@ interface GeoResponse {
 
 export class GeolocationService {
 	private static readonly BASE_URL = "http://cs310.students.cs.ubc.ca:11316/api/v1/project_team127";
-	private cache = new Map<string, { lat: number; lon: number }>();
+	private static cache = new Map<string, { lat: number; lon: number }>();
 
 	public async getGeolocation(address: string): Promise<{ lat: number; lon: number }> {
-		if (this.cache.has(address)) {
-			return this.cache.get(address)!;
+		if (GeolocationService.cache.has(address)) {
+			return GeolocationService.cache.get(address)!;
 		}
 
 		const encodedAddress = encodeURIComponent(address);
@@ -34,7 +34,10 @@ export class GeolocationService {
 				throw new InsightError("Invalid geolocation response");
 			}
 
-			return { lat: data.lat, lon: data.lon };
+			const result = { lat: data.lat, lon: data.lon };
+			GeolocationService.cache.set(address, result);
+
+			return result;
 		} catch (error) {
 			if (error instanceof InsightError) {
 				throw error;
