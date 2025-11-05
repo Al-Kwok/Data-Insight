@@ -1,0 +1,15 @@
+{
+	"title": "Multi-column sorting",
+	"input": {
+		"WHERE": {},
+		"OPTIONS": {
+			"COLUMNS": ["sections_dept", "sections_id", "sections_avg"],
+			"ORDER": {
+				"dir": "DOWN",
+				"keys": ["sections_dept", "sections_avg"]
+			}
+		}
+	},
+	"errorExpected": false,
+	"expected": []
+}
