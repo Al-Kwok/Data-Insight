@@ -217,12 +217,15 @@ export class DatasetValidator {
 		for (const row of rows) {
 			const cells = this.findElementsByTagName(row, "td");
 
+			if (cells.length === 0) continue; // Skip header row
+
 			const titleCell = cells.find((cell) => this.hasClass(cell, "views-field-title"));
 			const addressCell = cells.find((cell) => this.hasClass(cell, "views-field-field-building-address"));
 			const codeCell = cells.find((cell) => this.hasClass(cell, "views-field-field-building-code"));
 
 			if (titleCell && addressCell && codeCell) {
 				const link = this.findElementsByTagName(titleCell, "a")[0];
+
 				if (link?.attrs) {
 					const href = link.attrs.find((attr: { name: string; value: string }) => attr.name === "href")?.value;
 					const fullname = this.getTextContent(titleCell);
