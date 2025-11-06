@@ -167,8 +167,13 @@ export class DatasetValidator {
 				}
 
 				const buildingContent = await buildingFile.async("text");
-				const geolocation = await this.geolocationService.getGeolocation(building.address);
-				return this.parseBuildingFile(buildingContent, building, geolocation);
+				try {
+					const geolocation = await this.geolocationService.getGeolocation(building.address);
+					return this.parseBuildingFile(buildingContent, building, geolocation);
+				} catch {
+					// Skip buildings with geolocation failures
+					return [];
+				}
 			} catch {
 				return [];
 			}
