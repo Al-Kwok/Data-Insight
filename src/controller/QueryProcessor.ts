@@ -99,8 +99,8 @@ export class QueryProcessor {
 		for (const value of values) {
 			total = total.add(new Decimal(value));
 		}
-		const avg = total.dividedBy(values.length);
-		return parseFloat(avg.toFixed(2));
+		const avg = total.toNumber() / values.length;
+		return Number(avg.toFixed(2));
 	}
 
 	public applySorting(results: InsightResult[], order: any): InsightResult[] {

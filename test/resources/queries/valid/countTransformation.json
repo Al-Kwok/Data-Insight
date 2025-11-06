@@ -1,19 +1,429 @@
 {
 	"title": "COUNT transformation",
 	"input": {
-		"WHERE": {},
+		"WHERE": {
+			"GT": {
+				"sections_avg": 90
+			}
+		},
 		"OPTIONS": {
-			"COLUMNS": ["sections_dept", "numSections"]
+			"COLUMNS": ["sections_dept", "numSections"],
+			"ORDER": "numSections"
 		},
 		"TRANSFORMATIONS": {
 			"GROUP": ["sections_dept"],
 			"APPLY": [{
 				"numSections": {
-					"COUNT": "sections_id"
+					"COUNT": "sections_uuid"
 				}
 			}]
 		}
 	},
 	"errorExpected": false,
-	"expected": []
+	"expected": [
+		{
+			"sections_dept": "apbi",
+			"numSections": 1
+		},
+		{
+			"sections_dept": "aanb",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "atsc",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "babs",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "ccst",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "cohr",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "fipr",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "food",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "germ",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "gpp",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "gsat",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "hist",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "hunu",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "isci",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "ital",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "lfs",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "ling",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "nrsc",
+			"numSections": 2
+		},
+		{
+			"sections_dept": "fopr",
+			"numSections": 3
+		},
+		{
+			"sections_dept": "hinu",
+			"numSections": 3
+		},
+		{
+			"sections_dept": "anat",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "astr",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "bams",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "itst",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "larc",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "name",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "phrm",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "rsot",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "russ",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "sans",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "soil",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "span",
+			"numSections": 4
+		},
+		{
+			"sections_dept": "anth",
+			"numSections": 5
+		},
+		{
+			"sections_dept": "elec",
+			"numSections": 5
+		},
+		{
+			"sections_dept": "bota",
+			"numSections": 6
+		},
+		{
+			"sections_dept": "cons",
+			"numSections": 6
+		},
+		{
+			"sections_dept": "obst",
+			"numSections": 6
+		},
+		{
+			"sections_dept": "phil",
+			"numSections": 6
+		},
+		{
+			"sections_dept": "arth",
+			"numSections": 7
+		},
+		{
+			"sections_dept": "ceen",
+			"numSections": 7
+		},
+		{
+			"sections_dept": "bioc",
+			"numSections": 8
+		},
+		{
+			"sections_dept": "biof",
+			"numSections": 8
+		},
+		{
+			"sections_dept": "comm",
+			"numSections": 8
+		},
+		{
+			"sections_dept": "libe",
+			"numSections": 8
+		},
+		{
+			"sections_dept": "bmeg",
+			"numSections": 9
+		},
+		{
+			"sections_dept": "chil",
+			"numSections": 9
+		},
+		{
+			"sections_dept": "zool",
+			"numSections": 10
+		},
+		{
+			"sections_dept": "mtrl",
+			"numSections": 11
+		},
+		{
+			"sections_dept": "arst",
+			"numSections": 12
+		},
+		{
+			"sections_dept": "fish",
+			"numSections": 12
+		},
+		{
+			"sections_dept": "libr",
+			"numSections": 12
+		},
+		{
+			"sections_dept": "onco",
+			"numSections": 12
+		},
+		{
+			"sections_dept": "stat",
+			"numSections": 12
+		},
+		{
+			"sections_dept": "surg",
+			"numSections": 12
+		},
+		{
+			"sections_dept": "eced",
+			"numSections": 13
+		},
+		{
+			"sections_dept": "chem",
+			"numSections": 14
+		},
+		{
+			"sections_dept": "dhyg",
+			"numSections": 14
+		},
+		{
+			"sections_dept": "adhe",
+			"numSections": 15
+		},
+		{
+			"sections_dept": "fnh",
+			"numSections": 15
+		},
+		{
+			"sections_dept": "phth",
+			"numSections": 16
+		},
+		{
+			"sections_dept": "hgse",
+			"numSections": 18
+		},
+		{
+			"sections_dept": "micb",
+			"numSections": 20
+		},
+		{
+			"sections_dept": "rhsc",
+			"numSections": 20
+		},
+		{
+			"sections_dept": "apsc",
+			"numSections": 22
+		},
+		{
+			"sections_dept": "lled",
+			"numSections": 24
+		},
+		{
+			"sections_dept": "medi",
+			"numSections": 24
+		},
+		{
+			"sections_dept": "dent",
+			"numSections": 25
+		},
+		{
+			"sections_dept": "frst",
+			"numSections": 25
+		},
+		{
+			"sections_dept": "biol",
+			"numSections": 26
+		},
+		{
+			"sections_dept": "medg",
+			"numSections": 26
+		},
+		{
+			"sections_dept": "mine",
+			"numSections": 26
+		},
+		{
+			"sections_dept": "midw",
+			"numSections": 28
+		},
+		{
+			"sections_dept": "thtr",
+			"numSections": 28
+		},
+		{
+			"sections_dept": "pcth",
+			"numSections": 29
+		},
+		{
+			"sections_dept": "chbe",
+			"numSections": 31
+		},
+		{
+			"sections_dept": "mech",
+			"numSections": 32
+		},
+		{
+			"sections_dept": "educ",
+			"numSections": 33
+		},
+		{
+			"sections_dept": "path",
+			"numSections": 36
+		},
+		{
+			"sections_dept": "civl",
+			"numSections": 37
+		},
+		{
+			"sections_dept": "cell",
+			"numSections": 38
+		},
+		{
+			"sections_dept": "plan",
+			"numSections": 42
+		},
+		{
+			"sections_dept": "phys",
+			"numSections": 43
+		},
+		{
+			"sections_dept": "cpsc",
+			"numSections": 44
+		},
+		{
+			"sections_dept": "eosc",
+			"numSections": 44
+		},
+		{
+			"sections_dept": "sowk",
+			"numSections": 47
+		},
+		{
+			"sections_dept": "musc",
+			"numSections": 51
+		},
+		{
+			"sections_dept": "crwr",
+			"numSections": 59
+		},
+		{
+			"sections_dept": "econ",
+			"numSections": 59
+		},
+		{
+			"sections_dept": "phar",
+			"numSections": 61
+		},
+		{
+			"sections_dept": "psyc",
+			"numSections": 63
+		},
+		{
+			"sections_dept": "kin",
+			"numSections": 69
+		},
+		{
+			"sections_dept": "eece",
+			"numSections": 71
+		},
+		{
+			"sections_dept": "edst",
+			"numSections": 72
+		},
+		{
+			"sections_dept": "edcp",
+			"numSections": 89
+		},
+		{
+			"sections_dept": "spph",
+			"numSections": 90
+		},
+		{
+			"sections_dept": "audi",
+			"numSections": 104
+		},
+		{
+			"sections_dept": "nurs",
+			"numSections": 111
+		},
+		{
+			"sections_dept": "math",
+			"numSections": 161
+		},
+		{
+			"sections_dept": "etec",
+			"numSections": 167
+		},
+		{
+			"sections_dept": "cnps",
+			"numSections": 184
+		},
+		{
+			"sections_dept": "epse",
+			"numSections": 581
+		}
+	]
 }
