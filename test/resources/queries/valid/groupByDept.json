@@ -1,9 +1,14 @@
 {
 	"title": "GROUP BY department with MAX",
 	"input": {
-		"WHERE": {},
+		"WHERE": {
+			"GT": {
+				"sections_avg": 95
+			}
+		},
 		"OPTIONS": {
-			"COLUMNS": ["sections_dept", "maxAvg"]
+			"COLUMNS": ["sections_dept", "maxAvg"],
+			"ORDER": "maxAvg"
 		},
 		"TRANSFORMATIONS": {
 			"GROUP": ["sections_dept"],
@@ -15,5 +20,150 @@
 		}
 	},
 	"errorExpected": false,
-	"expected": []
+	"expected": [
+		{
+			"sections_dept": "phar",
+			"maxAvg": 95.07
+		},
+		{
+			"sections_dept": "bmeg",
+			"maxAvg": 95.15
+		},
+		{
+			"sections_dept": "thtr",
+			"maxAvg": 95.2
+		},
+		{
+			"sections_dept": "hgse",
+			"maxAvg": 95.29
+		},
+		{
+			"sections_dept": "phth",
+			"maxAvg": 95.37
+		},
+		{
+			"sections_dept": "phys",
+			"maxAvg": 95.43
+		},
+		{
+			"sections_dept": "chbe",
+			"maxAvg": 95.54
+		},
+		{
+			"sections_dept": "edcp",
+			"maxAvg": 95.58
+		},
+		{
+			"sections_dept": "apsc",
+			"maxAvg": 96
+		},
+		{
+			"sections_dept": "pcth",
+			"maxAvg": 96
+		},
+		{
+			"sections_dept": "phil",
+			"maxAvg": 96
+		},
+		{
+			"sections_dept": "kin",
+			"maxAvg": 96.06
+		},
+		{
+			"sections_dept": "libr",
+			"maxAvg": 96.1
+		},
+		{
+			"sections_dept": "adhe",
+			"maxAvg": 96.11
+		},
+		{
+			"sections_dept": "sowk",
+			"maxAvg": 96.15
+		},
+		{
+			"sections_dept": "mtrl",
+			"maxAvg": 96.25
+		},
+		{
+			"sections_dept": "civl",
+			"maxAvg": 96.27
+		},
+		{
+			"sections_dept": "frst",
+			"maxAvg": 96.36
+		},
+		{
+			"sections_dept": "fipr",
+			"maxAvg": 96.4
+		},
+		{
+			"sections_dept": "edst",
+			"maxAvg": 96.46
+		},
+		{
+			"sections_dept": "etec",
+			"maxAvg": 96.47
+		},
+		{
+			"sections_dept": "plan",
+			"maxAvg": 96.47
+		},
+		{
+			"sections_dept": "midw",
+			"maxAvg": 96.5
+		},
+		{
+			"sections_dept": "musc",
+			"maxAvg": 96.5
+		},
+		{
+			"sections_dept": "mine",
+			"maxAvg": 96.59
+		},
+		{
+			"sections_dept": "audi",
+			"maxAvg": 96.9
+		},
+		{
+			"sections_dept": "arst",
+			"maxAvg": 96.94
+		},
+		{
+			"sections_dept": "psyc",
+			"maxAvg": 97
+		},
+		{
+			"sections_dept": "educ",
+			"maxAvg": 97.5
+		},
+		{
+			"sections_dept": "crwr",
+			"maxAvg": 98
+		},
+		{
+			"sections_dept": "nurs",
+			"maxAvg": 98.71
+		},
+		{
+			"sections_dept": "eece",
+			"maxAvg": 98.75
+		},
+		{
+			"sections_dept": "epse",
+			"maxAvg": 98.8
+		},
+		{
+			"sections_dept": "spph",
+			"maxAvg": 98.98
+		},
+		{
+			"sections_dept": "cnps",
+			"maxAvg": 99.19
+		},
+		{
+			"sections_dept": "math",
+			"maxAvg": 99.78
+		}
+	]
 }

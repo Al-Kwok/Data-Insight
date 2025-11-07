@@ -1,19 +1,322 @@
 {
 	"title": "SUM transformation",
 	"input": {
-		"WHERE": {},
+		"WHERE": {
+			"AND": [
+				{"IS": {"sections_dept": "math"}},
+				{"EQ": {"sections_year": 2014}}
+			]
+		},
 		"OPTIONS": {
-			"COLUMNS": ["sections_dept", "totalPass"]
+			"COLUMNS": ["sections_id", "totalEnrolment"],
+			"ORDER": "totalEnrolment"
 		},
 		"TRANSFORMATIONS": {
-			"GROUP": ["sections_dept"],
+			"GROUP": ["sections_id"],
 			"APPLY": [{
-				"totalPass": {
+				"totalEnrolment": {
 					"SUM": "sections_pass"
 				}
 			}]
 		}
 	},
 	"errorExpected": false,
-	"expected": []
+	"expected": [
+		{
+			"sections_id": "425",
+			"totalEnrolment": 4
+		},
+		{
+			"sections_id": "589",
+			"totalEnrolment": 4
+		},
+		{
+			"sections_id": "437",
+			"totalEnrolment": 5
+		},
+		{
+			"sections_id": "521",
+			"totalEnrolment": 6
+		},
+		{
+			"sections_id": "537",
+			"totalEnrolment": 6
+		},
+		{
+			"sections_id": "501",
+			"totalEnrolment": 7
+		},
+		{
+			"sections_id": "508",
+			"totalEnrolment": 7
+		},
+		{
+			"sections_id": "507",
+			"totalEnrolment": 8
+		},
+		{
+			"sections_id": "418",
+			"totalEnrolment": 9
+		},
+		{
+			"sections_id": "422",
+			"totalEnrolment": 9
+		},
+		{
+			"sections_id": "510",
+			"totalEnrolment": 9
+		},
+		{
+			"sections_id": "545",
+			"totalEnrolment": 9
+		},
+		{
+			"sections_id": "323",
+			"totalEnrolment": 10
+		},
+		{
+			"sections_id": "406",
+			"totalEnrolment": 10
+		},
+		{
+			"sections_id": "420",
+			"totalEnrolment": 10
+		},
+		{
+			"sections_id": "525",
+			"totalEnrolment": 10
+		},
+		{
+			"sections_id": "544",
+			"totalEnrolment": 10
+		},
+		{
+			"sections_id": "440",
+			"totalEnrolment": 11
+		},
+		{
+			"sections_id": "441",
+			"totalEnrolment": 12
+		},
+		{
+			"sections_id": "516",
+			"totalEnrolment": 12
+		},
+		{
+			"sections_id": "503",
+			"totalEnrolment": 13
+		},
+		{
+			"sections_id": "444",
+			"totalEnrolment": 14
+		},
+		{
+			"sections_id": "532",
+			"totalEnrolment": 15
+		},
+		{
+			"sections_id": "442",
+			"totalEnrolment": 16
+		},
+		{
+			"sections_id": "550",
+			"totalEnrolment": 17
+		},
+		{
+			"sections_id": "405",
+			"totalEnrolment": 25
+		},
+		{
+			"sections_id": "121",
+			"totalEnrolment": 26
+		},
+		{
+			"sections_id": "414",
+			"totalEnrolment": 26
+		},
+		{
+			"sections_id": "322",
+			"totalEnrolment": 27
+		},
+		{
+			"sections_id": "227",
+			"totalEnrolment": 28
+		},
+		{
+			"sections_id": "321",
+			"totalEnrolment": 28
+		},
+		{
+			"sections_id": "401",
+			"totalEnrolment": 29
+		},
+		{
+			"sections_id": "301",
+			"totalEnrolment": 32
+		},
+		{
+			"sections_id": "342",
+			"totalEnrolment": 34
+		},
+		{
+			"sections_id": "120",
+			"totalEnrolment": 36
+		},
+		{
+			"sections_id": "226",
+			"totalEnrolment": 42
+		},
+		{
+			"sections_id": "210",
+			"totalEnrolment": 43
+		},
+		{
+			"sections_id": "345",
+			"totalEnrolment": 44
+		},
+		{
+			"sections_id": "223",
+			"totalEnrolment": 47
+		},
+		{
+			"sections_id": "320",
+			"totalEnrolment": 63
+		},
+		{
+			"sections_id": "190",
+			"totalEnrolment": 65
+		},
+		{
+			"sections_id": "305",
+			"totalEnrolment": 69
+		},
+		{
+			"sections_id": "308",
+			"totalEnrolment": 71
+		},
+		{
+			"sections_id": "303",
+			"totalEnrolment": 73
+		},
+		{
+			"sections_id": "312",
+			"totalEnrolment": 74
+		},
+		{
+			"sections_id": "335",
+			"totalEnrolment": 76
+		},
+		{
+			"sections_id": "318",
+			"totalEnrolment": 85
+		},
+		{
+			"sections_id": "217",
+			"totalEnrolment": 94
+		},
+		{
+			"sections_id": "400",
+			"totalEnrolment": 97
+		},
+		{
+			"sections_id": "264",
+			"totalEnrolment": 173
+		},
+		{
+			"sections_id": "316",
+			"totalEnrolment": 181
+		},
+		{
+			"sections_id": "300",
+			"totalEnrolment": 193
+		},
+		{
+			"sections_id": "302",
+			"totalEnrolment": 226
+		},
+		{
+			"sections_id": "340",
+			"totalEnrolment": 226
+		},
+		{
+			"sections_id": "110",
+			"totalEnrolment": 274
+		},
+		{
+			"sections_id": "317",
+			"totalEnrolment": 276
+		},
+		{
+			"sections_id": "257",
+			"totalEnrolment": 280
+		},
+		{
+			"sections_id": "215",
+			"totalEnrolment": 282
+		},
+		{
+			"sections_id": "307",
+			"totalEnrolment": 296
+		},
+		{
+			"sections_id": "220",
+			"totalEnrolment": 358
+		},
+		{
+			"sections_id": "256",
+			"totalEnrolment": 366
+		},
+		{
+			"sections_id": "255",
+			"totalEnrolment": 448
+		},
+		{
+			"sections_id": "180",
+			"totalEnrolment": 460
+		},
+		{
+			"sections_id": "102",
+			"totalEnrolment": 605
+		},
+		{
+			"sections_id": "184",
+			"totalEnrolment": 608
+		},
+		{
+			"sections_id": "103",
+			"totalEnrolment": 632
+		},
+		{
+			"sections_id": "152",
+			"totalEnrolment": 649
+		},
+		{
+			"sections_id": "253",
+			"totalEnrolment": 739
+		},
+		{
+			"sections_id": "104",
+			"totalEnrolment": 816
+		},
+		{
+			"sections_id": "221",
+			"totalEnrolment": 888
+		},
+		{
+			"sections_id": "200",
+			"totalEnrolment": 945
+		},
+		{
+			"sections_id": "105",
+			"totalEnrolment": 949
+		},
+		{
+			"sections_id": "100",
+			"totalEnrolment": 1171
+		},
+		{
+			"sections_id": "101",
+			"totalEnrolment": 1532
+		}
+	]
 }

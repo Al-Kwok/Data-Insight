@@ -45,8 +45,8 @@ export class QueryValidator {
 		switch (key) {
 			case "AND":
 			case "OR":
-				if (!Array.isArray(value) || value.length < 2) {
-					throw new InsightError(`${key} must have at least 2 filters`);
+				if (!Array.isArray(value) || value.length === 0) {
+					throw new InsightError(`${key} must be a non-empty array`);
 				}
 				value.forEach((f: any) => this.validateFilter(f));
 				break;
