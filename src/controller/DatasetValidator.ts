@@ -288,7 +288,7 @@ export class DatasetValidator {
 			const link = this.findElementsByTagName(hrefCell, "a")[0];
 			const href = link?.attrs?.find((attr: { name: string; value: string }) => attr.name === "href")?.value || "";
 
-			if (number && !isNaN(seats) && type && furniture) {
+			if (number && !isNaN(seats)) {
 				return {
 					fullname: building.fullname,
 					shortname: building.shortname,

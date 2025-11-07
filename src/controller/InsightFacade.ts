@@ -209,6 +209,11 @@ export default class InsightFacade implements IInsightFacade {
 
 		const filtered = this.applyWhere(dataset, q.WHERE);
 
+		// Check size limit before transformations (transformations typically reduce size)
+		if (!q.TRANSFORMATIONS && filtered.length > InsightFacade.MAX_RESULTS) {
+			throw new ResultTooLargeError("Query result exceeds 5000 rows");
+		}
+
 		let results: InsightResult[];
 		if (q.TRANSFORMATIONS) {
 			results = this.queryProcessor.applyTransformations(filtered, q.TRANSFORMATIONS);
@@ -217,6 +222,7 @@ export default class InsightFacade implements IInsightFacade {
 			results = this.applyOptions(filtered, q.OPTIONS);
 		}
 
+		// Final size check after transformations (just in case)
 		if (results.length > InsightFacade.MAX_RESULTS) {
 			throw new ResultTooLargeError("Query result exceeds 5000 rows");
 		}
