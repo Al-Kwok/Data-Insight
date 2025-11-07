@@ -35,43 +35,57 @@ export default class InsightFacade implements IInsightFacade {
 	private loadPromise: Promise<void>;
 
 	constructor() {
-		this.datasets = new Map<string, Section[] | Room[]>();
-		this.datasetKinds = new Map<string, InsightDatasetKind>();
 		this.loadPromise = this.loadPersistedDatasets();
 	}
 
 	public async addDataset(id: string, content: string, kind: InsightDatasetKind): Promise<string[]> {
 		await this.loadPromise;
+		this.validateAddDatasetInput(id, kind);
+		const dataset = await this.extractDataset(content, kind);
+		this.addToMemory(id, dataset, kind);
+		await this.persistDataset(id, dataset, kind);
+		return Array.from(this.datasets.keys());
+	}
 
+	private validateAddDatasetInput(id: string, kind: InsightDatasetKind): void {
 		this.datasetValidator.validateId(id);
-
 		if (this.datasets.has(id)) {
 			throw new InsightError(`Dataset with id '${id}' already exists`);
 		}
-
 		if (kind !== InsightDatasetKind.Sections && kind !== InsightDatasetKind.Rooms) {
 			throw new InsightError("Unsupported dataset kind");
 		}
+	}
 
-		let dataset: Section[] | Room[];
-
+	private async extractDataset(content: string, kind: InsightDatasetKind): Promise<Section[] | Room[]> {
 		if (kind === InsightDatasetKind.Sections) {
 			const sections = await this.datasetValidator.extractSectionsFromZip(content);
 			if (sections.length === 0) {
 				throw new InsightError("No valid sections found in dataset");
 			}
-			dataset = sections;
+			return sections;
 		} else {
-			const rooms = await this.datasetValidator.extractRoomsFromZip(content);
-			if (rooms.length === 0) {
-				throw new InsightError("No valid rooms found in dataset");
+			try {
+				const rooms = await this.datasetValidator.extractRoomsFromZip(content);
+				if (rooms.length === 0) {
+					throw new InsightError("No valid rooms found in dataset");
+				}
+				return rooms;
+			} catch (error) {
+				if (error instanceof InsightError) {
+					throw error;
+				}
+				throw new InsightError(`Failed to extract rooms: ${error}`);
 			}
-			dataset = rooms;
 		}
+	}
 
+	private addToMemory(id: string, dataset: Section[] | Room[], kind: InsightDatasetKind): void {
 		this.datasets.set(id, dataset);
 		this.datasetKinds.set(id, kind);
+	}
 
+	private async persistDataset(id: string, dataset: Section[] | Room[], kind: InsightDatasetKind): Promise<void> {
 		try {
 			await this.saveToDisk(id, dataset, kind);
 		} catch (error) {
@@ -79,22 +93,27 @@ export default class InsightFacade implements IInsightFacade {
 			this.datasetKinds.delete(id);
 			throw new InsightError(`Failed to persist dataset: ${error}`);
 		}
-
-		return Array.from(this.datasets.keys());
 	}
 
 	private async saveToDisk(id: string, dataset: Section[] | Room[], kind: InsightDatasetKind): Promise<void> {
-		await fs.ensureDir(this.persistDir);
-		const filepath = `${this.persistDir}/${id}.json`;
-		const persistedData: PersistedDataset = {
-			id,
-			kind,
-			data: dataset,
-		};
-		await fs.writeJSON(filepath, persistedData, { spaces: 2 });
+		try {
+			await fs.ensureDir(this.persistDir);
+			const filepath = `${this.persistDir}/${id}.json`;
+			const persistedData: PersistedDataset = {
+				id,
+				kind,
+				data: dataset,
+			};
+			await fs.writeJSON(filepath, persistedData, { spaces: 2 });
+		} catch (error) {
+			throw new InsightError(`Failed to save dataset to disk: ${error}`);
+		}
 	}
 
 	private async loadPersistedDatasets(): Promise<void> {
+		this.datasets = new Map<string, Section[] | Room[]>();
+		this.datasetKinds = new Map<string, InsightDatasetKind>();
+
 		try {
 			const exists = await fs.pathExists(this.persistDir);
 			if (!exists) {
@@ -128,7 +147,7 @@ export default class InsightFacade implements IInsightFacade {
 				}
 			}
 		} catch {
-			// Start with empty datasets
+			// Start with empty datasets - maps already initialized above
 		}
 	}
 
@@ -141,15 +160,15 @@ export default class InsightFacade implements IInsightFacade {
 			throw new NotFoundError(`Dataset with id '${id}' not found`);
 		}
 
-		this.datasets.delete(id);
-		this.datasetKinds.delete(id);
-
 		try {
 			const filepath = `${this.persistDir}/${id}.json`;
 			await fs.remove(filepath);
-		} catch {
-			// If disk removal fails, we should still consider it removed from memory
+		} catch (error) {
+			throw new InsightError(`Failed to remove dataset from disk: ${error}`);
 		}
+
+		this.datasets.delete(id);
+		this.datasetKinds.delete(id);
 		return id;
 	}
 
@@ -162,7 +181,7 @@ export default class InsightFacade implements IInsightFacade {
 			const kind = this.datasetKinds.get(id)!;
 			result.push({
 				id: id,
-				kind,
+				kind: kind,
 				numRows: dataset.length,
 			});
 		}
@@ -305,12 +324,5 @@ export default class InsightFacade implements IInsightFacade {
 			return selected;
 		});
 	}
-
-	// private isRoomDataset(dataset: Section[] | Room[]): dataset is Room[] {
-	// 	if (dataset.length === 0) {
-	// 		return false; // or throw an error
-	// 	}
-	// 	return "fullname" in dataset[0];
-	// }
 }
 // End Code generated by Claude Sonnet 4 and adjusted as needed by Elena Kolmogorov and Alex Kwok

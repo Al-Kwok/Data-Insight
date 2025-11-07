@@ -109,19 +109,18 @@ export class QueryProcessor {
 		}
 
 		if (typeof order === "string") {
-			return this.sortByKey(results, order, "UP");
+			return this.sortByKey(results, order);
 		}
 
 		const { dir, keys } = order;
 		return this.sortByMultipleKeys(results, keys, dir);
 	}
 
-	private sortByKey(results: InsightResult[], key: string, direction: string): InsightResult[] {
+	private sortByKey(results: InsightResult[], key: string): InsightResult[] {
 		return results.sort((a, b) => {
 			const aVal = a[key];
 			const bVal = b[key];
-			const comparison = this.compareValues(aVal, bVal);
-			return direction === "UP" ? comparison : -comparison;
+			return this.compareValues(aVal, bVal);
 		});
 	}
 
