@@ -117,12 +117,12 @@ export class DatasetValidator {
 	public async extractRoomsFromZip(content: string): Promise<Room[]> {
 		const zip = await this.loadZipFile(content);
 		const buildings = await this.extractBuildingsFromIndex(zip);
-		const rooms = await this.processAllBuildings(zip, buildings);
 
-		if (rooms.length === 0) {
-			throw new InsightError("No valid rooms found in dataset");
+		if (buildings.length === 0) {
+			throw new InsightError("No buildings found in index.htm");
 		}
 
+		const rooms = await this.processAllBuildings(zip, buildings);
 		return rooms;
 	}
 
