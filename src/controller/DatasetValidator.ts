@@ -199,17 +199,25 @@ export class DatasetValidator {
 
 	private isBuildingTable(table: any): boolean {
 		const rows = this.findElementsByTagName(table, "tr");
+
+		// Define valid building table classes
+		const validBuildingClasses = [
+			"views-field-title",
+			"views-field-field-building-address",
+			"views-field-field-building-code",
+		];
+
+		// Per spec: "as soon as you find one <td> element with a valid class, then you have found the table"
 		for (const row of rows) {
 			const cells = this.findElementsByTagName(row, "td");
 
-			const hasTitle = cells.some((cell) => this.hasClass(cell, "views-field-title"));
-			const hasAddress = cells.some((cell) => this.hasClass(cell, "views-field-field-building-address"));
-			const hasCode = cells.some((cell) => this.hasClass(cell, "views-field-field-building-code"));
-
-			if (hasTitle && hasAddress && hasCode) {
-				return true;
+			for (const cell of cells) {
+				if (validBuildingClasses.some((className) => this.hasClass(cell, className))) {
+					return true;
+				}
 			}
 		}
+
 		return false;
 	}
 
@@ -222,12 +230,15 @@ export class DatasetValidator {
 		for (const row of rows) {
 			const cells = this.findElementsByTagName(row, "td");
 
+			if (cells.length === 0) continue; // Skip header row
+
 			const titleCell = cells.find((cell) => this.hasClass(cell, "views-field-title"));
 			const addressCell = cells.find((cell) => this.hasClass(cell, "views-field-field-building-address"));
 			const codeCell = cells.find((cell) => this.hasClass(cell, "views-field-field-building-code"));
 
 			if (titleCell && addressCell && codeCell) {
 				const link = this.findElementsByTagName(titleCell, "a")[0];
+
 				if (link?.attrs) {
 					const href = link.attrs.find((attr: { name: string; value: string }) => attr.name === "href")?.value;
 					const fullname = this.getTextContent(titleCell);
@@ -288,7 +299,8 @@ export class DatasetValidator {
 			const link = this.findElementsByTagName(hrefCell, "a")[0];
 			const href = link?.attrs?.find((attr: { name: string; value: string }) => attr.name === "href")?.value || "";
 
-			if (number && !isNaN(seats)) {
+			// Only validate that seats is a valid number; per spec, empty strings are valid for other fields
+			if (!isNaN(seats)) {
 				return {
 					fullname: building.fullname,
 					shortname: building.shortname,
