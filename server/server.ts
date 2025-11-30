@@ -2,12 +2,8 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
 import InsightFacade from "../src/controller/InsightFacade";
-import {
-	InsightDatasetKind,
-	InsightError,
-	NotFoundError,
-	ResultTooLargeError,
-} from "../src/controller/IInsightFacade";
+import { InsightDatasetKind, InsightError, NotFoundError, ResultTooLargeError } from "../src/controller/IInsightFacade";
+import { DatasetInsights } from "../src/controller/DatasetInsights";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,7 +35,7 @@ app.put(`${API_VERSION}/datasets/:id/:kind`, async (req: Request, res: Response)
 		}
 
 		const result = await insightFacade.addDataset(id, content, kind as InsightDatasetKind);
-		res.status(201).json({ result });  // 201 Created for new resource
+		res.status(201).json({ result }); // 201 Created for new resource
 	} catch (error) {
 		if (error instanceof InsightError) {
 			res.status(400).json({ error: error.message });
@@ -93,18 +89,39 @@ app.post(`${API_VERSION}/queries`, async (req: Request, res: Response) => {
 	}
 });
 
+// GET /api/v1/insights/:id - Generate insights for a dataset
+app.get(`${API_VERSION}/insights/:id`, async (req: Request, res: Response) => {
+	console.log(`[INSIGHTS] Request received for dataset: ${req.params.id}`);
+	try {
+		const { id } = req.params;
+		console.log(`[INSIGHTS] Creating DatasetInsights instance for: ${id}`);
+		const datasetInsights = new DatasetInsights(insightFacade);
+		console.log(`[INSIGHTS] Generating insights for: ${id}`);
+		const insights = await datasetInsights.generateInsights(id);
+		console.log(`[INSIGHTS] Successfully generated ${insights.length} insights`);
+		res.status(200).json({ result: insights });
+	} catch (error) {
+		console.error(`[INSIGHTS] Error generating insights:`, error);
+		if (error instanceof InsightError) {
+			res.status(400).json({ error: error.message });
+		} else {
+			res.status(500).json({ error: "Internal server error" });
+		}
+	}
+});
+
 // Serve static files from React build
 // In dev mode (ts-node): __dirname = server/
 // In prod mode (compiled): __dirname = dist/server/
-const frontendBuildPath = __dirname.includes('dist')
-	? path.join(__dirname, "../../../frontend/build")  // Production
-	: path.join(__dirname, "../frontend/build");        // Development
+const frontendBuildPath = __dirname.includes("dist")
+	? path.join(__dirname, "../../../frontend/build") // Production
+	: path.join(__dirname, "../frontend/build"); // Development
 app.use(express.static(frontendBuildPath));
 
 // Serve React app for any route not handled by API (must be after static files)
 app.use((req: Request, res: Response, next: NextFunction) => {
 	// If the request is for an API endpoint that doesn't exist, let it fall through to 404
-	if (req.path.startsWith('/api/')) {
+	if (req.path.startsWith("/api/")) {
 		return res.status(404).json({ error: "API endpoint not found" });
 	}
 	// Otherwise serve the React app
@@ -126,6 +143,7 @@ app.listen(PORT, () => {
 	console.log(`  DELETE ${API_VERSION}/datasets/:id       - Remove a dataset`);
 	console.log(`  GET    ${API_VERSION}/datasets           - List all datasets`);
 	console.log(`  POST   ${API_VERSION}/queries            - Perform a query`);
+	console.log(`  GET    ${API_VERSION}/insights/:id       - Generate dataset insights`);
 });
 
 export default app;

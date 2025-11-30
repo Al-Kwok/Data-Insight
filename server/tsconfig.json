@@ -10,12 +10,6 @@
 		"target": "ES2022",
 		"moduleResolution": "node"
 	},
-	"include": [
-		"server.ts",
-		"../src/**/*.ts"
-	],
-	"exclude": [
-		"node_modules",
-		"../test/**/*.ts"
-	]
+	"include": ["server.ts", "../src/**/*.ts"],
+	"exclude": ["node_modules", "../test/**/*.ts"]
 }

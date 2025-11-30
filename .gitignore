@@ -23,3 +23,7 @@ data/
 .DS_Store
 .env
 *.log
+
+# Compiled TypeScript files
+src/**/*.js
+src/**/*.js.map

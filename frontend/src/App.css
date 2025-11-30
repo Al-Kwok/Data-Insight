@@ -1,0 +1,41 @@
+.App {
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	background-color: #f8f9fa;
+}
+
+.App footer {
+	margin-top: auto;
+}
+
+.d-flex.gap-2 {
+	gap: 0.5rem;
+}
+
+.card {
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+	background-color: #f8f9fa;
+	border-bottom: 2px solid #dee2e6;
+}
+
+.nav-tabs .nav-link {
+	color: #495057;
+	font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+	font-weight: 600;
+}
+
+.table {
+	background-color: white;
+}
+
+textarea:focus,
+input:focus {
+	box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}

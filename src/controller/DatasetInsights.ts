@@ -8,7 +8,7 @@
  */
 
 import InsightFacade from "./InsightFacade";
-import {InsightDatasetKind, InsightResult} from "./IInsightFacade";
+import { InsightDatasetKind, InsightResult } from "./IInsightFacade";
 
 export interface DepartmentInsight {
 	dept: string;
@@ -52,38 +52,42 @@ export class DatasetInsights {
 				totalEnrollment: dept.totalEnrollment,
 				historicalAverage: historicalAvg,
 				topCourses: topCourses.slice(0, DatasetInsights.TOP_COURSES_PER_DEPT),
-				highestAverageCourses: highestAvgCourses.slice(0, DatasetInsights.HIGHEST_AVG_COURSES_COUNT)
+				highestAverageCourses: highestAvgCourses.slice(0, DatasetInsights.HIGHEST_AVG_COURSES_COUNT),
 			});
 		}
 
 		return insights;
 	}
 
-	private async getTopDepartmentsByEnrollment(datasetId: string): Promise<Array<{dept: string, totalEnrollment: number}>> {
+	private async getTopDepartmentsByEnrollment(
+		datasetId: string
+	): Promise<Array<{ dept: string; totalEnrollment: number }>> {
 		const query = {
 			WHERE: {},
 			OPTIONS: {
 				COLUMNS: [`${datasetId}_dept`, "totalEnrollment"],
 				ORDER: {
 					dir: "DOWN",
-					keys: ["totalEnrollment"]
-				}
+					keys: ["totalEnrollment"],
+				},
 			},
 			TRANSFORMATIONS: {
 				GROUP: [`${datasetId}_dept`],
-				APPLY: [{
-					totalEnrollment: {
-						SUM: `${datasetId}_pass`
-					}
-				}]
-			}
+				APPLY: [
+					{
+						totalEnrollment: {
+							SUM: `${datasetId}_pass`,
+						},
+					},
+				],
+			},
 		};
 
 		try {
 			const results = await this.facade.performQuery(query);
 			return results.slice(0, DatasetInsights.TOP_DEPARTMENTS_COUNT).map((r: InsightResult) => ({
 				dept: r[`${datasetId}_dept`] as string,
-				totalEnrollment: r.totalEnrollment as number
+				totalEnrollment: r.totalEnrollment as number,
 			}));
 		} catch (error) {
 			// If ResultTooLargeError, return empty array to gracefully handle
@@ -94,52 +98,54 @@ export class DatasetInsights {
 	private async getDepartmentHistoricalAverage(datasetId: string, dept: string): Promise<number> {
 		const query = {
 			WHERE: {
-				IS: {[`${datasetId}_dept`]: dept}
+				IS: { [`${datasetId}_dept`]: dept },
 			},
 			OPTIONS: {
-				COLUMNS: ["avgGrade"]
+				COLUMNS: ["avgGrade"],
 			},
 			TRANSFORMATIONS: {
 				GROUP: [`${datasetId}_dept`],
-				APPLY: [{
-					avgGrade: {
-						AVG: `${datasetId}_avg`
-					}
-				}]
-			}
+				APPLY: [
+					{
+						avgGrade: {
+							AVG: `${datasetId}_avg`,
+						},
+					},
+				],
+			},
 		};
 
 		const results = await this.facade.performQuery(query);
-		return results.length > 0 ? results[0].avgGrade as number : 0;
+		return results.length > 0 ? (results[0].avgGrade as number) : 0;
 	}
 
 	private async getTopCoursesByEnrollment(datasetId: string, dept: string): Promise<CourseInsight[]> {
 		const query = {
 			WHERE: {
-				IS: {[`${datasetId}_dept`]: dept}
+				IS: { [`${datasetId}_dept`]: dept },
 			},
 			OPTIONS: {
 				COLUMNS: [`${datasetId}_dept`, `${datasetId}_id`, `${datasetId}_title`, "totalEnrollment", "avgGrade"],
 				ORDER: {
 					dir: "DOWN",
-					keys: ["totalEnrollment"]
-				}
+					keys: ["totalEnrollment"],
+				},
 			},
 			TRANSFORMATIONS: {
 				GROUP: [`${datasetId}_dept`, `${datasetId}_id`, `${datasetId}_title`],
 				APPLY: [
 					{
 						totalEnrollment: {
-							SUM: `${datasetId}_pass`
-						}
+							SUM: `${datasetId}_pass`,
+						},
 					},
 					{
 						avgGrade: {
-							AVG: `${datasetId}_avg`
-						}
-					}
-				]
-			}
+							AVG: `${datasetId}_avg`,
+						},
+					},
+				],
+			},
 		};
 
 		const results = await this.facade.performQuery(query);
@@ -148,37 +154,37 @@ export class DatasetInsights {
 			id: r[`${datasetId}_id`] as string,
 			title: r[`${datasetId}_title`] as string,
 			enrollment: r.totalEnrollment as number,
-			average: r.avgGrade as number
+			average: r.avgGrade as number,
 		}));
 	}
 
 	private async getHighestAverageCourses(datasetId: string, dept: string): Promise<CourseInsight[]> {
 		const query = {
 			WHERE: {
-				IS: {[`${datasetId}_dept`]: dept}
+				IS: { [`${datasetId}_dept`]: dept },
 			},
 			OPTIONS: {
 				COLUMNS: [`${datasetId}_dept`, `${datasetId}_id`, `${datasetId}_title`, "totalEnrollment", "avgGrade"],
 				ORDER: {
 					dir: "DOWN",
-					keys: ["avgGrade"]
-				}
+					keys: ["avgGrade"],
+				},
 			},
 			TRANSFORMATIONS: {
 				GROUP: [`${datasetId}_dept`, `${datasetId}_id`, `${datasetId}_title`],
 				APPLY: [
 					{
 						totalEnrollment: {
-							SUM: `${datasetId}_pass`
-						}
+							SUM: `${datasetId}_pass`,
+						},
 					},
 					{
 						avgGrade: {
-							AVG: `${datasetId}_avg`
-						}
-					}
-				]
-			}
+							AVG: `${datasetId}_avg`,
+						},
+					},
+				],
+			},
 		};
 
 		const results = await this.facade.performQuery(query);
@@ -187,7 +193,7 @@ export class DatasetInsights {
 			id: r[`${datasetId}_id`] as string,
 			title: r[`${datasetId}_title`] as string,
 			enrollment: r.totalEnrollment as number,
-			average: r.avgGrade as number
+			average: r.avgGrade as number,
 		}));
 	}
 }
