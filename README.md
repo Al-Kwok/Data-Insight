@@ -1,9 +1,48 @@
-# CPSC 310 Project Repository
+# InsightFacade
 
-This repository contains starter code for the class project.
-Please keep your repository private.
+The frontend is hosted on Vercel and the backend is hosted on Render. They run on separate ports locally.
 
-For information about the project, autotest, and the checkpoints, see the course webpage.
+## 🚀 First Time Setup (For New Developers)
+If you just cloned this repository:
+
+1. **Install all dependencies** (root, frontend, and server; run once in root):
+   ```bash
+   yarn install
+   ```
+   This installs everything you need across all three workspaces.
+
+2. **Build the backend** (compiles `src/` and `server/`):
+   ```bash
+   cd server
+   npx tsc
+   cd ..
+   ```
+
+You're now ready to run the project locally!
+
+---
+
+## Running Locally
+
+The frontend and backend must be run in two separate terminals.
+
+**Terminal 1 — Backend:**
+```bash
+node server/dist/server/server.js
+```
+The backend will be available at `http://localhost:3000`.
+
+**Terminal 2 — Frontend:**
+```bash
+cd frontend
+yarn start
+```
+The frontend will be available at `http://localhost:3001`. API calls are proxied to the backend on port 3000 automatically.
+
+> Start the backend before the frontend.
+
+---
+
 
 ## Configuring your environment
 

@@ -1,0 +1,15 @@
+{
+	"extends": "@tsconfig/node24/tsconfig.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "..",
+		"noImplicitAny": true,
+		"esModuleInterop": true,
+		"sourceMap": true,
+		"module": "commonjs",
+		"target": "ES2022",
+		"moduleResolution": "node"
+	},
+	"include": ["server.ts", "../src/**/*.ts"],
+	"exclude": ["node_modules", "../test/**/*.ts"]
+}

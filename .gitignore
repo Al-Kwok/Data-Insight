@@ -21,5 +21,10 @@ data/
 
 # Normal Things
 .DS_Store
-.env
-*.log
+.eog
+
+# Compiled TypeScript files
+src/**/*.js
+src/**/*.js.map
+nv
+*.l
