@@ -1,8 +1,6 @@
 import { InsightDataset, InsightDatasetKind, InsightResult, ApiResponse, DepartmentInsight } from "./types";
 
-// Use relative URLs when served from the same origin (production)
-// or proxy to localhost:3000 when in development (see vite.config.ts or package.json proxy)
-const API_BASE_URL = "/api/v1";
+const API_BASE_URL = `${process.env.REACT_APP_API_URL || ""}/api/v1`;
 
 export class InsightFacadeAPI {
 	async addDataset(id: string, content: string): Promise<string[]> {

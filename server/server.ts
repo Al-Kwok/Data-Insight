@@ -1,6 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
-import path from "path";
 import InsightFacade from "../src/controller/InsightFacade";
 import { InsightDatasetKind, InsightError, NotFoundError, ResultTooLargeError } from "../src/controller/IInsightFacade";
 import { DatasetInsights } from "../src/controller/DatasetInsights";
@@ -9,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json({ limit: "50mb" })); // Increase limit for base64 datasets
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -110,22 +109,9 @@ app.get(`${API_VERSION}/insights/:id`, async (req: Request, res: Response) => {
 	}
 });
 
-// Serve static files from React build
-// In dev mode (ts-node): __dirname = server/
-// In prod mode (compiled): __dirname = dist/server/
-const frontendBuildPath = __dirname.includes("dist")
-	? path.join(__dirname, "../../../frontend/build") // Production
-	: path.join(__dirname, "../frontend/build"); // Development
-app.use(express.static(frontendBuildPath));
-
-// Serve React app for any route not handled by API (must be after static files)
-app.use((req: Request, res: Response, next: NextFunction) => {
-	// If the request is for an API endpoint that doesn't exist, let it fall through to 404
-	if (req.path.startsWith("/api/")) {
-		return res.status(404).json({ error: "API endpoint not found" });
-	}
-	// Otherwise serve the React app
-	res.sendFile(path.join(frontendBuildPath, "index.html"));
+// Unknown API route handler
+app.use("/api/", (req: Request, res: Response) => {
+	res.status(404).json({ error: "API endpoint not found" });
 });
 
 // Error handling middleware
@@ -137,7 +123,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Start server
 app.listen(PORT, () => {
 	console.log(`InsightFacade server listening on port ${PORT}`);
-	console.log(`Frontend: http://localhost:${PORT}`);
+	console.log(`Frontend origin: ${process.env.FRONTEND_URL || "(not set)"}`);
 	console.log(`REST API endpoints (v1):`);
 	console.log(`  PUT    ${API_VERSION}/datasets/:id/:kind - Add a dataset`);
 	console.log(`  DELETE ${API_VERSION}/datasets/:id       - Remove a dataset`);
