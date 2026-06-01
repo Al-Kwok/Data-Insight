@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
+import multer from "multer";
 import InsightFacade from "../src/controller/InsightFacade";
 import { InsightDatasetKind, InsightError, NotFoundError, ResultTooLargeError } from "../src/controller/IInsightFacade";
 import { DatasetInsights } from "../src/controller/DatasetInsights";
@@ -12,6 +13,9 @@ app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json({ limit: "50mb" })); // Increase limit for base64 datasets
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+// Multer: store uploaded files in memory as a Buffer
+const upload = multer({ storage: multer.memoryStorage() });
+
 // Initialize InsightFacade
 const insightFacade = new InsightFacade();
 
@@ -19,22 +23,28 @@ const insightFacade = new InsightFacade();
 const API_VERSION = "/api/v1";
 
 // PUT /api/v1/datasets/:id/:kind - Add a dataset
-app.put(`${API_VERSION}/datasets/:id/:kind`, async (req: Request, res: Response) => {
+// Accepts multipart/form-data (field name "file") or JSON { content: "<base64>" }
+app.put(`${API_VERSION}/datasets/:id/:kind`, upload.single("file"), async (req: Request, res: Response) => {
 	try {
 		const { id, kind } = req.params;
-		const { content } = req.body;
 
-		if (!content) {
-			return res.status(400).json({ error: "Missing content in request body" });
-		}
-
-		// Validate kind parameter
 		if (kind !== InsightDatasetKind.Sections && kind !== InsightDatasetKind.Rooms) {
 			return res.status(400).json({ error: "Invalid dataset kind. Must be 'sections' or 'rooms'" });
 		}
 
+		let content: string;
+		if (req.file) {
+			// Preferred path: raw binary from multipart upload → convert to base64 in-process
+			content = req.file.buffer.toString("base64");
+		} else if (req.body?.content) {
+			// Fallback: legacy JSON { content: "<base64>" }
+			content = req.body.content;
+		} else {
+			return res.status(400).json({ error: "Missing content in request body" });
+		}
+
 		const result = await insightFacade.addDataset(id, content, kind as InsightDatasetKind);
-		res.status(201).json({ result }); // 201 Created for new resource
+		res.status(201).json({ result });
 	} catch (error) {
 		if (error instanceof InsightError) {
 			res.status(400).json({ error: error.message });
