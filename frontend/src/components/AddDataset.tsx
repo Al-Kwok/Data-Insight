@@ -19,19 +19,6 @@ export const AddDataset: React.FC<AddDatasetProps> = ({ onDatasetAdded }) => {
 		}
 	};
 
-	const fileToBase64 = (file: File): Promise<string> => {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.readAsDataURL(file);
-			reader.onload = () => {
-				const base64String = reader.result as string;
-				const base64Data = base64String.split(",")[1];
-				resolve(base64Data);
-			};
-			reader.onerror = (error) => reject(error);
-		});
-	};
-
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setMessage(null);
@@ -48,8 +35,7 @@ export const AddDataset: React.FC<AddDatasetProps> = ({ onDatasetAdded }) => {
 
 		try {
 			setLoading(true);
-			const base64Content = await fileToBase64(zipFile);
-			const result = await api.addDataset(datasetId, base64Content);
+			const result = await api.addDataset(datasetId, zipFile);
 			setMessage({
 				type: "success",
 				text: `Dataset added successfully! Current datasets: ${result.join(", ")}`,

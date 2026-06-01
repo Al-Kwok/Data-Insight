@@ -3,16 +3,25 @@ import { InsightDataset, InsightDatasetKind, InsightResult, ApiResponse, Departm
 const API_BASE_URL = `${process.env.REACT_APP_API_URL || ""}/api/v1`;
 
 export class InsightFacadeAPI {
-	async addDataset(id: string, content: string): Promise<string[]> {
-		const response = await fetch(`${API_BASE_URL}/datasets/${id}/${InsightDatasetKind.Sections}`, {
+	async addDataset(id: string, file: File, kind: InsightDatasetKind = InsightDatasetKind.Sections): Promise<string[]> {
+		const formData = new FormData();
+		formData.append("file", file);
+
+		// No Content-Type header — the browser sets it automatically with the multipart boundary
+		const response = await fetch(`${API_BASE_URL}/datasets/${id}/${kind}`, {
 			method: "PUT",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({ content }),
+			body: formData,
 		});
 
-		const data: ApiResponse<string[]> = await response.json();
+		let data: ApiResponse<string[]>;
+		try {
+			data = await response.json();
+		} catch {
+			throw new Error(
+				`Server returned an invalid response (HTTP ${response.status}). ` +
+				`The file may be too large or the server may be unavailable.`
+			);
+		}
 
 		if (!response.ok) {
 			throw new Error(data.error || "Failed to add dataset");
